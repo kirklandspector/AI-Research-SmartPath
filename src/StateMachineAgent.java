@@ -9,11 +9,9 @@ public class StateMachineAgent {
 
 	// Instance variables
 	private Path best = null;  //best path from init to goal the agent knows atm
-	private ArrayList<Character> possibleBest;
 	private StateMachineEnvironment env;
 	private char[] alphabet;
 	private ArrayList<Episode> episodicMemory;
-	private Vector<Integer> addedInPlan;
 
 	//These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
@@ -24,32 +22,16 @@ public class StateMachineAgent {
 	public static final int TRANSITION_ONLY = 1;
 	public static final int GOAL = 2;
 
-	//Global state data
-	private ArrayList<int[]> equivalentStates;
-	private ArrayList<int[]> nonEquivalentStates;
-	private ArrayList<int[]> agentTransitionTable;
-	public static final int UNKNOWN_TRANSITION = -1; //Used to represent an unknown transition in the transition table
-	public static final int DELETED = -2;            //Indicates that a given row in the transition table has been deleted
-	public static final int GOAL_STATE = 0;
-	public static final int INIT_STATE = 1;
-	public static final char UNKNOWN_COMMAND = ' '; //a character guaranteed not
-	//to be in the alphabet
-
-
+    //TODO: Decide if this is neccessary
 	// The state the agent is in based off it's own version of the state machine
 	private int currentState = 1;
-	// A path which the agent expects will take it to the goal
-	// In other words, a method of testing it's hypothesis about two states being the same
+	//a path the agent will plan to take to try and reach the goal
 	private ArrayList<Episode> currentPlan = null;
 	//next command to execute in the current plan
 	private int planIndex = -1;
-	// The hypothesis that the agent is currently testing
-	// The agent believes currentHypothesis[0] == currentHypothesis[1] where each entry is a state in the FSM
-	private int[] currentHypothesis;
-	// As the agent adds states to it's personal mapping of the environment, it has to number them
-	// accordingly. This variable keeps track of the next stateID it has not yet used
-	private int currentStateID = 1;
 
+    //chance that a duplicate cmd is allowed if a random action is necessary
+    double DUPLICATE_FORGIVENESS = .10; //10% chance a duplicate is permitted
 
 	//Reset limit
 	public static final int MAX_RESETS = 1;
@@ -63,6 +45,7 @@ public class StateMachineAgent {
 	//DEBUG
 	int reorientFailures = 0;
 	int resetCount = 0;
+
 	//specify path to take for testing if boolean is true
 	ArrayList<Character> testPath = new ArrayList<Character>(Arrays.asList('b', 'b'));
 	boolean useDefinedPath = false;
@@ -71,117 +54,56 @@ public class StateMachineAgent {
 	 * The constructor for the agent simply initializes it's instance variables
 	 */
 	public StateMachineAgent() {
-		int[][] testTransitions = new int[][] {{2, 1, 0},{1, 0, 2},{2, 2, 2}};
-		//int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
+		//int[][] testTransitions = new int[][] {{2, 1, 0},{1, 0, 2},{2, 2, 2}};
+		int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
 		//int[][] testTransitions = new int[][]{{0,1},{1,1}};
-		env = new StateMachineEnvironment(testTransitions, 3, 3);
-		addedInPlan = new Vector<Integer>();
-		//env = new StateMachineEnvironment(testTransitions, 2, 2);
+		env = new StateMachineEnvironment(testTransitions, 3, 2);
 		alphabet = env.getAlphabet();
 		episodicMemory = new ArrayList<Episode>();
 		//Need a first episode for makeMove
-		episodicMemory.add(new Episode(UNKNOWN_COMMAND, NO_TRANSITION, INIT_STATE));
-		equivalentStates = new ArrayList<int[]>();
-		nonEquivalentStates = new ArrayList<int[]>();
-		agentTransitionTable = new ArrayList<int[]>();
-		int[] zeroRow = new int[alphabet.length];
-		int[] firstState = new int[alphabet.length];
-		//%%%TODO: Make the first element in a transition row the number of that state
-		for (int i = 0; i < zeroRow.length; i++) {
-			zeroRow[i] = /*UNKNOWN_TRANSITION*/0;
-			firstState[i] = UNKNOWN_TRANSITION;
-		}
-		agentTransitionTable.add(zeroRow);
-		agentTransitionTable.add(firstState);
-		possibleBest = new ArrayList<Character>();
+		episodicMemory.add(new Episode(' ', NO_TRANSITION));//the space cmd means unknown cmd for first memory
 	}
 
 	/**
+     * tryPath
+     *
 	 * Given a full string of moves, tryPath will enter the moves
 	 * one by one and determine if the entered path is successful
+     * A path is successful (returns true) only if it reaches the goal
+     * on the last cmd, otherwise it will return false. If it reaches the
+     * goal prematurely it will not execute anymore cmd's and return false
 	 *
-	 * CAVEAT:  This method returns 'true' even if the goal is reached
-	 * prematurely (before the path has been passed)
-	 *
-	 * @param best
+	 * @param pathToTry
 	 * 		An ArrayList of Characters representing the path to try
 	 * 
 	 * @return
 	 * 		A boolean which is true if the path was reached the goal and
 	 * 		false if it did not
 	 */
-	public boolean tryPath(Path best) {
+	public boolean tryPath(Path pathToTry) {
 		boolean[] sensors;
 		// Enter each character in the path
-		for (int i = 0; i < best.size(); i++) {
-			sensors = env.tick(best.get(i));
+		for (int i = 0; i < pathToTry.size(); i++) {
+			sensors = env.tick(pathToTry.get(i));
 			int encodedSensorResult = encodeSensors(sensors);
-			episodicMemory.add(new Episode(best.get(i), encodedSensorResult, INIT_STATE));
+			episodicMemory.add(new Episode(pathToTry.get(i), encodedSensorResult));
 
-			if (sensors[IS_GOAL]) {
-				//DEBUG
-				//System.out.println("Given path works");
-
-				// If we successfully find the goal, return true
+			if (sensors[IS_GOAL] && i == pathToTry.size()-1) { //if at goal and last cmd return true
 				return true;
 			}
+            else if (sensors[IS_GOAL]) { //if we hit the goal "early" stop and return false
+                return false;
+            }
 		}
-
-		//DEBUG
-		//System.out.println("Given path fails");
-
 		// If we make it through the entire loop, the path was unsuccessful
 		return false;
-	}
-
-	/**
-	 * trimPassphrase takes in a passphrase (which has been confirmed as
-	 * successful) and removes one character at a time until it is able to
-	 * determine the shortest version of the passphrase that is still
-	 * successful
-	 * 
-	 * @param toTrim
-	 * 		The passphrase to trim characters from
-	 * @return
-	 * 		toTrim reduced to the least amount of characters possible (not including equivalencies)
-	 */
-	public Path trimPath(Path toTrim) {
-		// Make a copy of the passed-in passphrase so as not to modify it
-		Path trimmed = toTrim.copy();
-		char removed; //Allows us to keep track of the removed character and add it back in if necessary
-
-		for (int i = 0; i < trimmed.size(); i++) {
-			// Trim the current character from the passphrase and test the
-			// result
-			removed = trimmed.get(i);
-			trimmed.remove(i); 
-			if (tryPath(trimmed)) {
-				// If the result is successful, decrement the index, as we
-				// have now no longer seen the element at index i
-				i--;
-			}
-			else {
-				// If the result is unsuccessful, the removed element is an
-				// important character and must be added back in to the
-				// passphrase
-				smartReset();
-				resetCount++;
-				trimmed.add(i, removed);
-
-				//Set the best path equal to the reset path if the reset path is shorter
-				Path maybeBest = getMostRecentPath();
-				if (maybeBest.size() < best.size()) {
-					best = maybeBest;
-				}
-			}
-		}
-		return trimmed;
 	}
 
 	/**
 	 * getMostRecentPath
 	 * 
 	 * Gets the most recent path present in Episodic Memory
+     *
 	 * @return The most recent path in episodic memory
 	 */
 	public Path getMostRecentPath() {
@@ -193,7 +115,10 @@ public class StateMachineAgent {
 		return new Path(pathChars);
 	}
 
+    //TODO: Take this code for later use
 	/**
+     * reset
+     *
 	 * Resets the agent by having it act randomly until it reaches the goal.
 	 * This will be changed to a more intelligent scheme later on
 	 */
@@ -205,10 +130,10 @@ public class StateMachineAgent {
 		//Currently, the agent will just move randomly until it reaches the goal
 		//and magically resets itself
 		do {
-			toCheck = generateRandomAction();
+			toCheck = generateSemiRandomAction();
 			sensors = env.tick(toCheck);
 			encodedSensorResult = encodeSensors(sensors);
-			episodicMemory.add(new Episode(toCheck, encodedSensorResult, INIT_STATE));
+			episodicMemory.add(new Episode(toCheck, encodedSensorResult));
 			/*if (episodicMemory.size() > 500000000) {
 				System.exit(0);
 			}*/
@@ -217,13 +142,34 @@ public class StateMachineAgent {
 	}
 
 	/**
-	 * Generates a random action for the Agent to take
+     * generateSemiRandomAction
+     *
+	 * Generates a semi random action for the Agent to take
+     * There is a a 10% forgiveness to make the same move again since
+     * prior research has shown duplicate commands are rarely successful
 	 * 
 	 * @return A random action for the Agent to take
 	 */
-	public char generateRandomAction() {
-		Random random = new Random();
-		return alphabet[random.nextInt(alphabet.length)];
+	public char generateSemiRandomAction() {
+        //decide if a dup command is acceptable
+        double chanceForDup = Math.random();
+        boolean dupPermitted = false;
+        if (chanceForDup < DUPLICATE_FORGIVENESS) {
+            dupPermitted = true;
+        }
+
+        //keep generating random moves till it is different from last or dups are allowed
+        Random random;
+        char possibleCmd;
+        Episode lastEpisode = episodicMemory.get(episodicMemory.size() - 1);
+        char lastCommand = lastEpisode.command;
+
+        do {
+            random = new Random();
+            possibleCmd = alphabet[random.nextInt(alphabet.length)];
+        } while (possibleCmd != lastCommand || dupPermitted); //different cmd or dups allowed
+
+		return possibleCmd;
 	}
 
 	/**
@@ -237,7 +183,7 @@ public class StateMachineAgent {
 		//if that wasn't hit something went wrong continue with a random action and alert user
 		else {
 			System.out.println("WARNING: your test path is out of commands and hasn't reached the goal, executing random action");
-			return generateRandomAction();
+			return generateSemiRandomAction();
 		}
 	}
 
@@ -647,7 +593,7 @@ public class StateMachineAgent {
 	}//getFirstUnknown
 
 	private char getUnknown(int rowIndex) {
-		char c = generateRandomAction();
+		char c = generateSemiRandomAction();
 		int[] row = agentTransitionTable.get(rowIndex);
 		if (row[indexOfCharacter(c)] == UNKNOWN_TRANSITION) {
 			return c;
@@ -680,7 +626,7 @@ public class StateMachineAgent {
 			//otherwise proceed as expected
 			if (useDefinedPath) return testDefinedPath();
 
-			return generateRandomAction();
+			return generateSemiRandomAction();
 		}
 
 		//%%%BUG: Sometimes the WRONG COMMAND is being returned when a plan exists.
@@ -730,7 +676,7 @@ public class StateMachineAgent {
 
 		//if something went wrong just act randomly
 		//(I don't think this should ever happen.)
-		return generateRandomAction();
+		return generateSemiRandomAction();
 	}
 
 	/**
@@ -1174,12 +1120,12 @@ public class StateMachineAgent {
      */
 	public void randomReset() {
         //build sensors and randomly move around the table
-        char cmd = generateRandomAction();
+        char cmd = generateSemiRandomAction();
         boolean[] sensors = env.tick(cmd);
         int mergedSensors = encodeSensors(sensors);
 
         while (mergedSensors != GOAL) { //while I'm not at the goal
-            cmd = generateRandomAction();
+            cmd = generateSemiRandomAction();
             sensors = env.tick(cmd);
             mergedSensors = encodeSensors(sensors);
         }

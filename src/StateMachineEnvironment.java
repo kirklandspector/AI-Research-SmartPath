@@ -2,7 +2,6 @@
 import java.util.ArrayList;
 import java.util.Random;
 
-
 /**
  * <!-- class StateMachineEnvironment -->
  * 
@@ -12,11 +11,15 @@ import java.util.Random;
  * move brings the agent to a new state, it's sensor will 
  * be true, if not it will be false. The agent is also able
  * to sense if it has reached the desired goal state.
- * 
+ *
+ * @author Kirkland Spector
+ * @author Chandler Underwood
+ *
+ * based off of code from:
  * @author Hailee Kenney
  * @author Preben Ingvaldsen
  * 
- * @version September 27, 2013
+ * @version February 26 2015
  *
  */
 public class StateMachineEnvironment {
@@ -40,7 +43,11 @@ public class StateMachineEnvironment {
 	//DEBUG
 	private boolean debug = false;
 
-	
+    /**
+     * StatMachineEnvironment
+     *
+     * Constructor to build an environment using the the defined sizes set above
+     */
 	public StateMachineEnvironment() {
 		paths = new String[NUM_STATES];
 		paths[GOAL_STATE] = "";
