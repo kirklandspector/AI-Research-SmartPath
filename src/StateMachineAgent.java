@@ -2,7 +2,6 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.Vector;
 
 
 public class StateMachineAgent {
@@ -29,7 +28,8 @@ public class StateMachineAgent {
      */
     //variables related to the SUS
     private int susScore;
-    boolean[] sequenceLengthsFound = new boolean[20];//just picked 20 as a guess
+    private static final int MAX_SEQUENCE_SIZE = 10; //just picked 10 as a guess
+    boolean[] sequenceLengthsFound = new boolean[MAX_SEQUENCE_SIZE];
     private ArrayList<String> sequencesNotPerformed;
     private int SUS_CONSTANT; //will become final after testing to find values
 
@@ -63,11 +63,24 @@ public class StateMachineAgent {
 		//int[][] testTransitions = new int[][] {{2, 1, 0},{1, 0, 2},{2, 2, 2}};
 		int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
 		//int[][] testTransitions = new int[][]{{0,1},{1,1}};
-		env = new StateMachineEnvironment(testTransitions, 3, 2);
+		env = new StateMachineEnvironment(testTransitions, 2, 3);
 		alphabet = env.getAlphabet();
+
 		episodicMemory = new ArrayList<Episode>();
-		//Need a first episode for makeMove
+		//Need a first episode that is empty
 		episodicMemory.add(new Episode(' ', NO_TRANSITION));//the space cmd means unknown cmd for first memory
+
+        //build the permutations of all sequences that can be performed
+        sequencesNotPerformed = new ArrayList<String>();
+        for(int lengthSize=1; lengthSize<=MAX_SEQUENCE_SIZE; lengthSize++){
+            fillPermutations(alphabet, lengthSize, sequencesNotPerformed);
+        }
+
+        //set all unique sequences sizes performed to false since we haven't moved yet
+        for (Boolean lengthComplete : sequenceLengthsFound){
+            lengthComplete = false;
+        }
+        sequenceLengthsFound[0] = true; //since you can't really perform a 0 length cmd
 	}
 
 	/**
@@ -192,6 +205,48 @@ public class StateMachineAgent {
 			return generateSemiRandomAction();
 		}
 	}
+
+    /**
+     * fillPermutations
+     *
+     * driver method to generate all strings for the sequencesNotPerformed arraylist
+     *
+     * @param set set of chars that can be used to build strings (alphabet)
+     * @param k length of string to build up to
+     * @param permutations place to store the strings
+     */
+    public void fillPermutations(char set[], int k, ArrayList<String> permutations){
+        int n = set.length;
+        buildPermutations(set, "", n, k, permutations);
+    }
+
+    /**
+     * buildPermutations
+     *
+     * helper method to actually build all the permutations of the strings and store them in the arraylist
+     *
+     * @param set set of chars that can be used to build strings (alphabet)
+     * @param prefix used to slowly build up different permutations
+     * @param n length of set (sort of clumsy way to do it right now)
+     * @param k length of string to build up to
+     * @param permutations place to store the strings
+     */
+    public void buildPermutations(char set[], String prefix, int n, int k, ArrayList<String> permutations) {
+        // Base case: k is 0
+        if (k == 0) {
+            permutations.add(prefix);
+            return;
+        }
+
+        // One by one add all characters from set and recursively
+        // call for k equals to k-1
+        for (int i = 0; i < n; ++i) {
+            // Next character of input added
+            String newPrefix = prefix + set[i];
+            // k is decreased, because we have added a new character
+            buildPermutations(set, newPrefix, n, k - 1, permutations);
+        }
+    }
 
 	/**
 	 * Finds the ending index of the longest substring in episodic memory before
@@ -347,8 +402,7 @@ public class StateMachineAgent {
 	 */
 	public static void main(String [ ] args)
 	{
-		StateMachineAgent gilligan;
-		gilligan = new StateMachineAgent();
+		StateMachineAgent gilligan = new StateMachineAgent();
 		System.out.println("ENVIRONMENT INFO:");
 		gilligan.env.printStateMachine();
 		gilligan.env.printPaths();
