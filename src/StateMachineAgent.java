@@ -8,7 +8,6 @@ import java.util.Vector;
 public class StateMachineAgent {
 
 	// Instance variables
-	private Path best = null;  //best path from init to goal the agent knows atm
 	private StateMachineEnvironment env;
 	private char[] alphabet;
 	private ArrayList<Episode> episodicMemory;
@@ -22,29 +21,36 @@ public class StateMachineAgent {
 	public static final int TRANSITION_ONLY = 1;
 	public static final int GOAL = 2;
 
-    //TODO: Decide if this is neccessary
-	// The state the agent is in based off it's own version of the state machine
-	private int currentState = 1;
-	//a path the agent will plan to take to try and reach the goal
-	private ArrayList<Episode> currentPlan = null;
-	//next command to execute in the current plan
-	private int planIndex = -1;
+    /**
+     * The SUS is the shortest unique sequence that has not been performed yet.
+     * A score will be made to evaluate if it will be chosen as the next path
+     * to execute. The idea being that it will slowly help find the best string
+     * of cmds to execute in tricky situations
+     */
+    //variables related to the SUS
+    private int susScore;
+    boolean[] sequenceLengthsFound = new boolean[20];//just picked 20 as a guess
+    private ArrayList<String> sequencesNotPerformed;
+    private int SUS_CONSTANT; //will become final after testing to find values
+
+    /**
+     * The LMS (lama) is the longest matching sequence that matching with what the agent
+     * has just executed. A score will be built related to the length of the sequence
+     * and the amount of moves to execute to "get to the goal." The idea behind this
+     * is that eventually there will be long matching strings that occur frequently
+     * and regularly get the agent to the goal... cross your fingers
+     */
+    //variables related to the LMS
+    private int lmsScore;
+    private int LMS_CONSTANT; //will become final after testing
+
+    private int RANDOM_SCORE; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .10; //10% chance a duplicate is permitted
 
-	//Reset limit
-	public static final int MAX_RESETS = 1;
-
-	//Tells the agent whether or not to use the reorientation reset
-	private boolean reorientation = true;
-
 	// Turns debug printing on and off
 	boolean debug = true;
-
-	//DEBUG
-	int reorientFailures = 0;
-	int resetCount = 0;
 
 	//specify path to take for testing if boolean is true
 	ArrayList<Character> testPath = new ArrayList<Character>(Arrays.asList('b', 'b'));
@@ -173,7 +179,7 @@ public class StateMachineAgent {
 	}
 
 	/**
-	 * Uses testPath arraylist to start agent on a specific path
+	 * Uses testPath arraylist to start agent on a specific path for testing purposes
 	 *
 	 * @return next char in the testPath
 	 */
@@ -185,108 +191,6 @@ public class StateMachineAgent {
 			System.out.println("WARNING: your test path is out of commands and hasn't reached the goal, executing random action");
 			return generateSemiRandomAction();
 		}
-	}
-
-
-	/**
-	 * A more intelligent reset for the agent that will cause the agent to try to find a path to the goal
-	 * by examining its episodic memory
-	 */
-	public void smartReset() {
-		if (reorientation) {
-			boolean successCode;
-			for(int i = 0; i < MAX_RESETS; i++) {
-				successCode = smartResetHelper();
-				if (successCode) {
-					return;
-				}
-			}
-			reorientFailures++;
-			reset();
-		}
-		else {
-			reset();
-		}
-	}
-
-	/**
-	 * An intelligent reset method for the agent that resets by searching its previous moves
-	 */
-	public boolean smartResetHelper() {
-		int matchedStringEndIndex = maxMatchedStringIndex();
-		char transitionCharacter;
-		boolean[] sensors;
-		int sensorEncoding;
-		int lastGoal = findLastGoal(episodicMemory.size()) + 1;
-		String action;
-		if (matchedStringEndIndex == -1) {
-			return false;
-		}
-		for (int i = matchedStringEndIndex + 1; i < lastGoal; i++) {
-			transitionCharacter = episodicMemory.get(i).command;
-			sensors = env.tick(transitionCharacter);
-			sensorEncoding = encodeSensors(sensors);
-			action = "" + transitionCharacter + sensorEncoding;
-			episodicMemory.add(new Episode(transitionCharacter, sensorEncoding, INIT_STATE));
-			if (sensorEncoding == GOAL) {
-				return true;
-			}
-
-			//System.err.println(episodicMemory.get(i) + " " + action);
-			if (!episodicMemory.get(i).equals(action)) {
-				//We're lost, so attempt another reset
-				return false;
-			}
-
-			//if (episodicMemory.size() > 5000000) {
-			//	System.exit(0);
-			//}
-		}
-
-		return false;
-	}
-
-	/**
-	 * mapStateMachine
-	 * 
-	 * Continually makes moves until the state machine has been mapped
-	 * 
-	 */
-	protected void mapStateMachine() {
-		char currCommand;
-		while (!mappingComplete()) {
-			currCommand = selectNextCommand();
-			makeMove(currCommand);
-			printStateMachine();
-		}
-		printStateMachine();
-	}
-
-	/**
-	 * mappingComplete
-	 * 
-	 * Checks to see if the mapping of the state machine has been completed
-	 * 
-	 * @return True if the mapping is complete, else false
-	 */
-	private boolean mappingComplete() {
-
-		for (int i = 0; i < agentTransitionTable.size(); i++) {
-
-			//Skip the check if the current row has been deleted
-			if (agentTransitionTable.get(i)[0] == DELETED) {
-				continue;
-			}
-
-			//Make sure every space in the transition table has been filled
-			for (int j = 0; j < alphabet.length; j++) {
-				if (agentTransitionTable.get(i)[j] == UNKNOWN_TRANSITION) {
-					return false;
-				}
-			}
-		}
-
-		return true;
 	}
 
 	/**
@@ -309,7 +213,7 @@ public class StateMachineAgent {
 			return -1;
 		}
 
-		//Find the longest matching subsequence
+		//Find the longest matching subsequence (LMS)
 		int maxStringIndex = -1;
 		int maxStringLength = 0;
 		int currStringLength;
@@ -401,285 +305,6 @@ public class StateMachineAgent {
 	}
 
 	/**
-	 * hasTransition
-	 * 
-	 * A helper method to determine if one state has a transition to another
-	 * @param fromState The state to transition from
-	 * @param toState The state to tranisition to
-	 * @return The index into the alphabet array for the transition character, or
-	 * 			-1 if no such character exists
-	 */
-	private int hasTransition(int fromState, int toState) {
-		for (int i = 0; i < agentTransitionTable.get(fromState).length; i++) {
-			if (agentTransitionTable.get(fromState)[i] == toState) {
-				return i;
-			}
-		}
-		return -1;
-	}
-
-	/**
-	 * makePlanToState
-	 *
-	 * creates a new plan to reach a given state (see {@link #currentPlan}) from
-	 * a given state
-	 *
-	 * @param startID   id of the state to start at
-	 * @param targetID  id of the state we want to reach
-	 */
-	private void makePlanToState(int startID, int targetID) {
-		//each path is a sequence of commands to reach the target
-		//state from the Nth state
-		String[] paths = new String[agentTransitionTable.size()];
-		for (int i = 0; i < paths.length; i++) {
-			paths[i] = "";
-		}
-
-		findAllPaths(paths, startID, targetID);
-
-		parsePathToPlan(paths, startID, targetID);
-
-		planIndex = -1;
-
-		//TODO: Debug
-		System.out.println("Plan from " + startID + " to " + targetID);
-		printPlan(currentPlan);
-		if (currentPlan == null) {
-			System.out.println("foo");
-		}
-		//if (currentPlan != null) System.exit(0);
-
-
-	}//makePlanToState
-
-	/**
-	 * findAllPaths
-	 *
-	 * Helper function for makePlanToState that uses targetID to construct all paths
-	 *
-	 * @param paths array of possible paths to reach goal
-	 * @param startID first destination to reach goal from
-	 * @param targetID the state to reach/goal
-	 *
-	 */
-	private void findAllPaths(String[] paths, int startID, int targetID){
-		//Create a queue that initially only contains the target state
-		ArrayList<Integer> queue = new ArrayList<Integer>();
-		queue.add(targetID);
-		int currState;
-		int transitionChar;
-
-		//loop through each state and add paths to reach currState to the queue
-		while (!queue.isEmpty()) {
-			//Grab the element at the front of the queue
-			currState = queue.remove(0);
-
-			//Move through each state that doesn't have a path yet. Find the
-			//transition from that state to the current state.
-			for (int i = 1; i < agentTransitionTable.size(); i++) {
-
-				//skip the ones that have a path
-				if (!paths[i].equals("")) continue;
-
-				transitionChar = hasTransition(i, currState);
-
-				//If state i has a transition to the current state and has no
-				//path, set the path for state i equal to the transition
-				//character from state i to the current state added to the front
-				//of the shortest path to the current state, and add state i
-				//onto the queue.
-				if (transitionChar != -1) {
-					paths[i] = alphabet[transitionChar] + paths[currState];
-					queue.add(i);
-
-					//if we find path to currstate from startID we can ignore the other states
-					if (i == startID) break;
-				}
-			}//for
-			//if we have found a path from the startID to the targetID we can ignore the other states
-			if (! paths[startID].equals("")) break;
-		}//while
-	}
-
-	/**
-	 * parsePathToPlan
-	 *
-	 * Accepts path to state and converts it into a plan comprised of a series of episodic memories
-	 *
-	 * @param paths array of possible paths to reach goal
-	 * @param startID first destination to reach goal from
-	 * @param targetID the state to reach/goal
-	 *
-	 */
-	private void parsePathToPlan(String[] paths, int startID, int targetID){
-		if (!paths[startID].equals("")) { //if there is a path, enter
-			ArrayList<Episode> plan = new ArrayList<Episode>();
-			String pathToParse = paths[startID];
-			int[] transitionRow = agentTransitionTable.get(startID);
-			int sensorValue = TRANSITION_ONLY;
-			int episodeState = startID;
-
-			//for each command in the path
-			for (int i = 0; i < pathToParse.length(); i++) {
-				//add the current episode
-				plan.add(new Episode(pathToParse.charAt(i), sensorValue, episodeState));
-
-				//define the next sensor values in the plan
-				//TODO: for now this isn't correct.  The code only
-				//cares about whether the agent should sense goal or not. In
-				//the future, we should have the correct sensor values here
-				//so we can recognize if the expected sensor values don't
-				//match actual and abort the plan then rather than waiting
-				//until we should reach the goal
-				if (targetID == 0 && i == pathToParse.length() - 1) {
-					sensorValue = GOAL;
-				} else {
-					sensorValue = TRANSITION_ONLY;
-				}
-
-				//figure out what state the command takes us to
-				int charIndex = findAlphabetIndex(pathToParse.charAt(i));
-				if (charIndex == -1) {
-					System.out.println("character: " + pathToParse.charAt(i));
-				}
-				if (transitionRow[charIndex] == GOAL_STATE) {
-					episodeState = INIT_STATE; //magic teleport to goal
-				} else {
-					episodeState = transitionRow[charIndex];
-				}
-
-				//update to transition row assoc'd with new curr state
-				if (transitionRow[charIndex] != -1) {
-					transitionRow = agentTransitionTable.get(transitionRow[charIndex]);
-				}
-			}//for
-
-			//Tack the goal state on the end to complete the plan
-			plan.add(new Episode(UNKNOWN_COMMAND, sensorValue, episodeState));
-
-			//Voila!
-			currentPlan = plan;
-
-			//Any valid plan must have at least two steps
-			if (plan.size() < 2) {
-				currentPlan = null;
-			}
-		}//if
-	}
-
-	/**
-	 * getFirstUnkown
-	 *
-	 * Given an index into the transition table, this method discovers the first
-	 * unknown transition in that row in the table and
-	 *
-	 * @param rowIndex  index of the row in the transition table
-	 *
-	 * @return the letter in the alphabet that corresponds to that entry or
-	 * UNKNOWN_COMMAND if it was not found
-	 */
-	private char getFirstUnknown(int rowIndex) {
-		int[] row = agentTransitionTable.get(rowIndex);
-		if (row[0] == DELETED) {
-			return UNKNOWN_COMMAND;
-		}
-		for(int i = 0; i < row.length; ++i) {
-			if (row[i] == UNKNOWN_TRANSITION) {
-				return alphabet[i];
-			}
-		}
-
-		return UNKNOWN_COMMAND;  // no unknown transition
-	}//getFirstUnknown
-
-	private char getUnknown(int rowIndex) {
-		char c = generateSemiRandomAction();
-		int[] row = agentTransitionTable.get(rowIndex);
-		if (row[indexOfCharacter(c)] == UNKNOWN_TRANSITION) {
-			return c;
-		}
-		return getUnknown(rowIndex);
-	}
-
-
-	/**
-	 * selectNextCommand
-	 *
-	 * returns the command the agent should take next depending upon its current
-	 * state, progress, plan, knowledge etc.
-	 *
-	 * SIDE EFFECTS:  a new plan may be created or the current plan advanced
-	 *
-	 * @return the command to take
-	 *
-	 */
-	private char selectNextCommand() {
-		char cmd = ' '; //the command to return
-		if (currentPlan != null) {
-			int x = 2;
-		}
-
-		//If I've never found a path to the goal I can only act randomly until I
-		//find the goal
-		if (best == null) {
-			//if we're testing, set boolean to true to use a predefined path
-			//otherwise proceed as expected
-			if (useDefinedPath) return testDefinedPath();
-
-			return generateSemiRandomAction();
-		}
-
-		//%%%BUG: Sometimes the WRONG COMMAND is being returned when a plan exists.
-		//If I have an active plan, extract the next action from that plan
-		else if (currentPlan != null && currentPlan.size() != 0) {
-			Episode currEp = currentPlan.get(planIndex+1);
-			return currEp.command;
-		}
-
-		//If there is no plan, then select an action that I've never done before
-		//from the state that I believe I'm in (explore)
-		else {
-			for (int i = 0; i < alphabet.length; i++) {
-				if (agentTransitionTable.get(currentState)[i] == UNKNOWN_TRANSITION) {
-					cmd = getUnknown(currentState);
-					if (cmd != UNKNOWN_COMMAND) return cmd;
-				}
-			}
-		}
-
-		//Find and delete any unreachable states
-		for (int i = 2; i < agentTransitionTable.size(); i++) {
-			if (agentTransitionTable.get(i)[0] != DELETED) {
-				makePlanToState(INIT_STATE, i);
-				if (currentPlan == null) {
-					agentTransitionTable.get(i)[0] = DELETED;
-				}
-			}
-		}
-
-		//if we reach this point there is no unknown transition from the current
-		//state.  Find the lowest numbered state that has an unknown transition
-		//and make a plan to get there
-		int state = 0;
-		while (cmd == UNKNOWN_COMMAND) {
-			state++;
-			cmd = getFirstUnknown(state);
-		}
-
-		//make a plan to reach that unknown state
-		this.currentPlan = null;
-		makePlanToState(this.currentState, state);
-		if (currentPlan != null) {
-			cmd = currentPlan.get(planIndex+1).command;
-			return cmd;
-		}
-
-		//if something went wrong just act randomly
-		//(I don't think this should ever happen.)
-		return generateSemiRandomAction();
-	}
-
-	/**
 	 * Returns the index of the given character in the alphabet array
 	 * @param toCheck the character to find the index of
 	 * @return the index of toCheck
@@ -693,121 +318,6 @@ public class StateMachineAgent {
 
 		return -1;
 	}
-
-	/**
-	 * acceptCurrentHypothesis
-	 *
-	 * the current hypothetic equivlency is not believed to be true.  Update the
-	 * list of known equivalents and also update the transition table
-
-     From the journal:
-     If were testing a state equivalency hypothesis, then your hypothesis
-     becomes "fact" and update your equivalencies list and the transition table
-     appropriately.  As part of this merging you should check to see if there
-     any two rows that match exactly (unknown transitions don't match).  If
-     there are, then they are the same state, merge them.
-	 */
-	private void acceptCurrentHypothesis() {
-		//Delete all states added while doing this plan, then reset the list
-		for (int i : addedInPlan) {
-			agentTransitionTable.get(i)[0] = DELETED;
-		}
-
-		//Replace states in previous episodes with correct ones
-		int k = 0;
-		for (int i = episodicMemory.size() - currentPlan.size(); i < episodicMemory.size(); i++) {
-			episodicMemory.get(i).stateID = currentPlan.get(k).stateID;
-			k++;
-		}
-
-		equivalentStates.add(currentHypothesis);
-		if (currentHypothesis[1] == INIT_STATE) {
-			currentHypothesis[1] = currentHypothesis[0];
-			currentHypothesis[0] = INIT_STATE;
-		}
-		mergeTwoStates(currentHypothesis[0], currentHypothesis[1]);
-		for (int i = 0; i < agentTransitionTable.size(); i++) {
-			for (int j = i + 1; j < agentTransitionTable.size(); j++) {
-				if (isCompatibleRow(agentTransitionTable.get(i), agentTransitionTable.get(j), true)) {
-					mergeTwoStates(i, j);
-				}
-			}
-		}
-
-	}
-
-	/**
-	 * mergeTwoStates
-	 * 
-	 * Takes two equivalent states and merges them together
-	 */
-	private void mergeTwoStates(int state1, int state2) {
-		//Merge the two states together
-		System.out.println("State " + state1 + " has been merged with State " + state2);
-		for (int i = 0; i < alphabet.length; i++) {
-			if (agentTransitionTable.get(state2)[i] != UNKNOWN_TRANSITION && agentTransitionTable.get(state1)[i] == UNKNOWN_TRANSITION) {
-				agentTransitionTable.get(state1)[i] = agentTransitionTable.get(state2)[i];
-			}
-		}
-
-		//Change all transitions to state2 to transitions to state1
-		for (int i = 0; i < agentTransitionTable.size(); i++) {
-			for (int j = 0; j < alphabet.length; j++) {
-				if (agentTransitionTable.get(i)[j] == state2) {
-					agentTransitionTable.get(i)[j] = state1;
-				}
-			}
-		}
-
-		//Mark state2 as deleted
-		agentTransitionTable.get(state2)[0] = DELETED;
-	}
-
-	/**
-	 * cleanupFailedPlan
-	 *
-	 * if a plan fails, then the current hypotheses are assumed to be
-	 * incorrect.  The two states are added the {@link #nonEquivalentStates}
-	 * list.  A new state is added to the transition table and a new epmem is
-	 * added to the episodic memory that indicates we transitioned to that
-	 * state. this.currentState is also updated.
-                 - if you were testing an equivalency then your
-                   hypothesis becomes false.  Record the non-equivalency
-                   appropriately
-
-                 - otherwise you must have been trying to get to a
-                   state as per 7d above.  I'm not sure what to do
-                   here as this indicates that a previous equivalency
-                   is actually false.  Ignore for now.
-	 */
-	private void cleanupFailedPlan(int mergedSensors) {
-		//Reset the list of states added while following this plan
-		addedInPlan = new Vector<Integer>();
-
-		if(currentPlan.size() <= 1)
-		{
-			//ignore for now? reset?
-			System.out.println("Plan should never be of length 1!");
-			System.exit(-1);
-		}
-
-		//Add the current hypothesis to the list of non equivalent states if the hypothesis exists
-		if (currentHypothesis != null)
-		{
-			nonEquivalentStates.add(currentHypothesis);
-		}
-		currentHypothesis = null;
-        //Not sure why this is here, it doesn't do anything...
-		Episode lastEpisode = episodicMemory.get(episodicMemory.size() - 1);
-		char action = lastEpisode.command;
-		int lastState = lastEpisode.stateID;
-		int actionIndex = findAlphabetIndex(action);
-
-		//Remove the current plan and reset the plan index
-		currentPlan = null;
-		planIndex = -1;
-
-	}//cleanupFailedPlan
 
 	/**
 	 * A helper method which determines a given letter's
@@ -829,391 +339,25 @@ public class StateMachineAgent {
 		return -1;
 	}
 
-
 	/**
-	 * isCompatibleRow
-	 *
-	 * given two rows in the transition table, this method verifies that they
-	 * are "compatible" i.e., all corresponding entries that are both not
-	 * unknown are the same value.
-	 *
-	 */
-	private boolean isCompatibleRow(int[] row1, int[] row2, boolean hypothesisMerged) {
-		//System.out.println("Checking if rows are compatible");
-
-		//A deleted row is incompatible with everything
-		if (row1[0] == DELETED || row2[0] == DELETED) {
-			return false;
-		}
-
-		//%%%IMPORTANT: If the rule that a state must have so many transitions to itself is removed, this will
-		//no longer function properly and will need to be changed
-		//The goal row should NEVER be merged
-		boolean goal1 = true;
-		boolean goal2 = true;
-		for (int i = 0; i < row1.length; i++) {
-			if (row1[i] != GOAL_STATE) {
-				goal1 = false;
-			}
-			if (row2[i] != GOAL_STATE) {
-				goal2 = false;
-			}
-		}
-		if (goal1 || goal2) {
-			return false;
-		}
-
-
-		boolean knownShared = false;
-		if (!hypothesisMerged) knownShared = true;
-		
-		// Go through each entry in the rows to compare them
-		for(int i = 0; i < row1.length; i++) { 
-			// If the rows are not equivalent
-			if(row1[i] != row2[i]) {
-				// And neither of them are unknown, the rows are not equivalent
-				if( !(row1[i] == UNKNOWN_TRANSITION || row2[i] == UNKNOWN_TRANSITION)){
-					return false;
-				}
-			}
-
-			// Ensure there is at least one known match between the two rows
-			//TODO:  Put this back in?  Removed by :AMN: and HNK because the current state is likely to 
-			// be brand new and thus have -1 for all transitions out.  How can this ever pass?
-			else if (row1[i] != UNKNOWN_TRANSITION && row2[i] != UNKNOWN_TRANSITION) {
-				knownShared = true;
-			}
-		}
-		return knownShared;
-		//return true;
-	}
-
-	/**
-	 * makeMove
-	 *
-	 * issues a given command and updates the episodic memory, transition table,
-	 * current plan, etc. as a result.
-	 *
-	 * @param cmd the command to issue
-	 */
-	private void makeMove(char cmd) {
-
-        //TODO: REMOVE (DEBUG)
-        System.out.println("Executing command " + cmd + " from " + currentState);
-
-        
-		possibleBest.add(cmd);
-
-		//Complete the current episode with the given command
-		Episode currEp = this.episodicMemory.get(this.episodicMemory.size() - 1);
-		currEp.command = cmd;
-
-		boolean[] sensors = env.tick(cmd);
-		int mergedSensors = encodeSensors(sensors);
-		int commandIndex = findAlphabetIndex(cmd);
-
-		if (mergedSensors == GOAL) {
-			if (best == null || possibleBest.size() < best.size()) {
-				best = new Path(possibleBest);
-			}
-			possibleBest = new ArrayList<Character>();
-		}
-
-		//if we're in the middle of a plan it needs to be updated
-		if (this.currentPlan != null && this.currentPlan.size() != 0) {
-
-			//Advance the plan and verify that the sensors match
-			this.planIndex++;
-			Episode currPlanEp = this.currentPlan.get(this.planIndex+1);
-			//TODO: We are only comparing sensor values for the last step of the plan. At some point we will have to 
-			//check it every step.
-			if (planIndex == currentPlan.size() - 2 && 
-					((currPlanEp.sensorValue == GOAL && mergedSensors != GOAL) ||
-							(currPlanEp.sensorValue != GOAL && currentState != currPlanEp.stateID))) {
-				// %%%DEBUG
-				System.out.println("Our plan failed!");
-				//Plan has failed
-				cleanupFailedPlan(mergedSensors);
-                //At this point I'm lost, I'll randomly make moves till I get to the goal, Not adding any states
-                randomReset();
-			}
-
-			//Examine the transition to extract what state I believe I'm in
-			Episode prev = episodicMemory.get(episodicMemory.size() - 1);
-			if (prev.stateID < 0) {
-				System.out.println("I'm returning   " + prev.stateID);
-				return;
-			}
-			int[] row = agentTransitionTable.get(prev.stateID);
-			this.currentState = row[commandIndex];
-
-			//If I don't know where I am create a new state and update the table
-			if (this.currentState == UNKNOWN_TRANSITION) {
-				//Create a new state for this new circumstance if we are not at the goal
-				if (mergedSensors != GOAL) {
-					currentStateID++;
-					row[commandIndex] = currentStateID;
-					currentState = currentStateID;
-					if (currentPlan != null) {
-						addedInPlan.add(currentStateID);
-					}
-
-					//%%%TBD  add a row to the transition table to support this
-					int[] newRow = new int[alphabet.length];
-					for (int i = 0; i < newRow.length; i++) {
-						newRow[i] = UNKNOWN_TRANSITION;
-					}
-					agentTransitionTable.add(newRow);
-				}
-			}
-
-			//Magical reset if the agent has hit the goal
-			if (mergedSensors == GOAL) {
-				this.currentState = INIT_STATE;
-			}
-
-			//Add an episode that reflects our belief that this hypothesis is
-			//correct
-			//%%%ISSUE: What if the hypothesis is not correct?
-			//%%%ANSWER: Doesn't matter, it's fucked either way.
-			//%%%TODO: Return to this, replace episodes with plan episodes if the plan was successful
-			Episode now = new Episode(UNKNOWN_COMMAND, mergedSensors, currentState);
-			episodicMemory.add(now);
-
-			//If we've reached the goal episode for the plan the remove it
-			//And verify all hypotheses
-			if (currentPlan != null && this.planIndex >= this.currentPlan.size() - 2) {
-				//if this was a plan to reach the goal then any hypothetic
-				//equivalencies need to be accepted
-				if (currPlanEp.stateID == INIT_STATE) {
-					// %%%DEBUG
-					System.out.println("We're accepting our hypothesis!");
-					acceptCurrentHypothesis();
-				}
-				this.currentPlan = null;
-				this.planIndex = -1;
-			}
-		}
-
-		//This 'else' covers the the case where there was no plan.  The agent
-		//has just taken a random or semi-random action
-		else {
-			//Examine the transition to extract what state I believe I'm in
-			Episode prev = episodicMemory.get(episodicMemory.size() - 1);
-			if (prev.stateID < 0) {
-				System.out.println("I'm returning   " + prev.stateID);
-				return;
-			}
-			int[] row = agentTransitionTable.get(prev.stateID);
-			this.currentState = row[commandIndex];
-
-			//If I don't know where I am create a new state and update the table
-			if (this.currentState == UNKNOWN_TRANSITION) {
-				//Create a new state for this new circumstance if we are not at the goal
-				if (mergedSensors != GOAL) {
-					currentStateID++;
-					row[commandIndex] = currentStateID;
-					currentState = currentStateID;
-
-					//add a row to the transition table to support this
-					int[] newRow = new int[alphabet.length];
-					for (int i = 0; i < newRow.length; i++) {
-						newRow[i] = UNKNOWN_TRANSITION;
-					}
-					agentTransitionTable.add(newRow);
-				}
-			}
-
-			//Magical reset to the start if the goal has been reached
-			if (mergedSensors == GOAL) {
-				this.currentState = INIT_STATE;
-				row[commandIndex] = GOAL_STATE;
-			}
-
-			//Add an episode to reflect what just happened
-			Episode now = new Episode(UNKNOWN_COMMAND, mergedSensors, this.currentState);
-			episodicMemory.add(now);
-			//this.currentState = currentStateID;
-			
-			//TODO: REMOVE (DEBUG)
-			printStateMachine();
-			System.out.println("Current Episodes:");
-			System.out.print("  ");
-			for(int i = 0; i < this.episodicMemory.size(); ++i) {
-				System.out.print("" + i + "        ");
-			}
-			System.out.println();
-			System.out.println(this.episodicMemory);
-			
-			//If we've reached the GOAL and reset then there's no need to do anything else
-			if (this.currentState == INIT_STATE) return;
-
-			//Find data about previous state that may be the same as the current
-			//state aka MAKE HYPOTHESIS
-
-			int equivIndex = maxMatchedStringIndex();
-			if (equivIndex != -1) {
-				Episode equivEpisode = episodicMemory.get(equivIndex);
-				if (equivEpisode.stateID < 0) {
-					return;
-				}
-				int[] equivRow = agentTransitionTable.get(equivEpisode.stateID);
-
-				//Make sure the equiv episode is not the current one
-				if (equivIndex >= episodicMemory.size() - 1) return;
-
-				//verify this equiv state has a compatible transition table entry to
-				//current state
-				row = agentTransitionTable.get(this.currentState);
-				if (!isCompatibleRow(row, equivRow, false)) return;
-
-				//Make sure that the two states are not the same
-				if (equivEpisode.stateID == this.currentState) return;
-
-				//verify that we haven't already discovered that these
-				//states aren't equal
-				for (int i = 0; i < nonEquivalentStates.size(); i++) {
-					if (nonEquivalentStates.get(i)[0] == equivEpisode.stateID 
-							&& nonEquivalentStates.get(i)[1] == this.currentState) {
-						return;
-					}
-					if (nonEquivalentStates.get(i)[1] == equivEpisode.stateID 
-							&& nonEquivalentStates.get(i)[0] == this.currentState) {
-						return;
-					}
-				}
-
-				//Don't make a hypothesis that any state is equal to the goal state
-				if (equivEpisode.stateID == GOAL_STATE || currentState == GOAL_STATE) {
-					return;
-				}
-
-				//hypothesize that equiv state equals the current state
-				currentHypothesis = new int[2];
-				currentHypothesis[0] = equivEpisode.stateID;
-				currentHypothesis[1] = this.currentState;
-
-                //TODO:  REMOVE (DEBUG)
-                System.out.println("hypothesis: " + equivEpisode.stateID +
-                                    " == " + this.currentState);
-
-				//Make a plan to reach the goal based upon the hypothesis
-				makePlanToState(equivEpisode.stateID, GOAL_STATE);
-			}
-
-		}//else
-
-		//MAKE SURE the agent has reset to state 1 if it's at the goal
-		if (mergedSensors == GOAL) {
-			currentState = INIT_STATE;
-		}
-
-	}//makeMove
-
-    /**
-     * randomReset
+	 * main
      *
-     * If this is called, we know that a hypothesis has failed and he's lost. We will proceed
-     * by making random moves to the goal except instead of making a state and episode for
-     * each move, we won't record anything. This method will take a long time for large
-     * state machines! Use with caution!
-     */
-	public void randomReset() {
-        //build sensors and randomly move around the table
-        char cmd = generateSemiRandomAction();
-        boolean[] sensors = env.tick(cmd);
-        int mergedSensors = encodeSensors(sensors);
-
-        while (mergedSensors != GOAL) { //while I'm not at the goal
-            cmd = generateSemiRandomAction();
-            sensors = env.tick(cmd);
-            mergedSensors = encodeSensors(sensors);
-        }
-        //at this point we should be at the goal so we can magically teleport back to the start
-        if (mergedSensors == GOAL) {
-            currentState = INIT_STATE;
-        }
-        else { //something went wrong!
-            System.out.println("My hypothesis failed and I can't get back to the start!");
-            System.exit(-1);
-        }
-	}
-
-	/**
-	 * runs multiple trials wherein a random state machine is solved and the
-	 * resulting 'best passphrase' for each is analyzed
+     * sends the agent through many rounds of exploring the environment in hopes
+     * to find a consistent way of navigating
 	 */
 	public static void main(String [ ] args)
 	{
-		StateMachineAgent ofSPECTRE;
-		ofSPECTRE = new StateMachineAgent();
+		StateMachineAgent gilligan;
+		gilligan = new StateMachineAgent();
 		System.out.println("ENVIRONMENT INFO:");
-		ofSPECTRE.env.printStateMachine();
-		ofSPECTRE.env.printPaths();
+		gilligan.env.printStateMachine();
+		gilligan.env.printPaths();
 
-
-		ofSPECTRE.mapStateMachine();
-		ofSPECTRE.best.printpath();
-		ofSPECTRE.episodicMemory = new ArrayList<Episode>();
-
-	}
-
-	/**
-	 * A method which iterates through and prints out
-	 * the two-dimension array that represents the state machine
-	 */
-	public void printStateMachine() {
-		System.out.print("     ");
-		for(int i = 0; i < alphabet.length; ++i) {
-			System.out.printf("%3c", alphabet[i]);
-		}
-		System.out.println();
-
-		for (int i = 0; i < agentTransitionTable.size(); i++) {
-			if (agentTransitionTable.get(i)[0] == DELETED) {
-				continue;
-			}
-			System.out.printf("%s%3d: ", currentState == i ? "*" : " ", i);
-
-			for (int j = 0; j < alphabet.length; j++) {
-				System.out.printf("%3d", agentTransitionTable.get(i)[j]);
-			}
-			System.out.println();
-		}
-
-		System.out.print("     ");
-		for(int i = 0; i < alphabet.length; ++i) {
-			System.out.printf("%3c", alphabet[i]);
-		}
-		System.out.println();
-	}
-
-	/** prints out a plan for debugging */
-	public void printPlan(ArrayList<Episode> plan)
-	{
-		System.out.print("Plan: ");
-		if (plan == null)
-		{
-			System.out.println("null");
-			return;
-		}
-		for(Episode ep : plan)
-		{
-			System.out.print(ep + ",");
-		}//for
-		System.out.println();
+        //call driver method
 	}
 
 	protected StateMachineEnvironment getEnv() {
 		return env;
 	}
-
-	protected ArrayList<int[]> getAgentTransitionTable() {
-		return agentTransitionTable;
-	}
-
-    protected Path getBest() {
-        return best;
-    }
 
 }//class StateMachineAgent
