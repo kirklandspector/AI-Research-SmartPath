@@ -27,11 +27,10 @@ public class StateMachineAgent {
      * of cmds to execute in tricky situations
      */
     //variables related to the SUS
-    private int susScore;
+    private double susScore = 0;
     private static final int MAX_SEQUENCE_SIZE = 10; //just picked 10 as a guess
-    boolean[] sequenceLengthsFound = new boolean[MAX_SEQUENCE_SIZE];
-    private ArrayList<String> sequencesNotPerformed;
-    private int SUS_CONSTANT; //will become final after testing to find values
+    private ArrayList<ArrayList<String>> sequencesNotPerformed;
+    private int SUS_CONSTANT = 10; //will become final after testing to find values
 
     /**
      * The LMS (lama) is the longest matching sequence that matching with what the agent
@@ -44,7 +43,7 @@ public class StateMachineAgent {
     private int lmsScore;
     private int LMS_CONSTANT; //will become final after testing
 
-    private int RANDOM_SCORE; //will become final after testing
+    private int RANDOM_SCORE = -1; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .10; //10% chance a duplicate is permitted
@@ -71,17 +70,132 @@ public class StateMachineAgent {
 		episodicMemory.add(new Episode(' ', NO_TRANSITION));//the space cmd means unknown cmd for first memory
 
         //build the permutations of all sequences that can be performed
-        sequencesNotPerformed = new ArrayList<String>();
+        sequencesNotPerformed = new ArrayList<ArrayList<String>>();
+        sequencesNotPerformed.add(0, null);//since a path of size 0 should be skipped (might not be necessary)
+
+        //iterate over all path sizes and add the permutations to the sequencesNotPerformed arrays
         for(int lengthSize=1; lengthSize<=MAX_SEQUENCE_SIZE; lengthSize++){
-            fillPermutations(alphabet, lengthSize, sequencesNotPerformed);
+            ArrayList<String> tempList = new ArrayList<String>();
+            fillPermutations(alphabet, lengthSize, tempList);
+            sequencesNotPerformed.add(lengthSize, tempList);
+        }
+	}
+
+    /**
+     * exploreEnvironment
+     *
+     * Main Driver Method of Program
+     *
+     * Sets the agent free into the wild allowing him to roam free. This means that he'll
+     * use the different scores to decide how to navigate the environment giving him full
+     * sentient capabilities...
+     */
+    public void exploreEnvironment() {
+        for(int i=0; i<10; i++) { //run ten commands
+            //TODO: Make this determine all scores and compare them
+
+            determineSusScore();
+
+            String currentSus = getSus();
+
+            Path currentSusPath = stringToPath(currentSus);
+
+            tryPath(currentSusPath);
+
+            scanAndRemoveNewSequences();
+        }
+    }
+
+    /**
+     * ************************************************************************************
+     * METHODS FOR THE SUS
+     * ************************************************************************************
+     */
+
+    /**
+     * scanAndRemoveNewSequences
+     *
+     * Rips through the memory and finds all unique sequences that have been performed
+     * and not yet removed from sequencesNotPerformed. Should be called after every
+     * command the agent makes
+     */
+    public void scanAndRemoveNewSequences(){
+        //iterate through all sizes of possible paths, if no unique paths exist, move on
+        //otherwise scan mem and remove matching sequences from SNP arraylist
+        for (int i=1; i<=MAX_SEQUENCE_SIZE; i++){
+            //if there are no paths of this length, move on
+            if (sequencesNotPerformed.get(i).isEmpty()){
+                continue;
+            }
+
+            //make sure current path size is smaller than mem size, if not break out
+            if (i > episodicMemory.size()-1) { //sub 1 because first " " command doesn't count
+                break;
+            }
+
+            //otherwise we'll go through memory of this size and check against SNP
+            for (int j=1; j<=episodicMemory.size()-i; j++){ //iterate over all commands - i to stop fence posting
+                String currentPath = ""; //path in memory to test
+                for (int k=0; k<i; k++){ //iterate the size of the path through
+                    currentPath += episodicMemory.get(j+k).command;
+                }
+
+                //test if this path is in SNP and remove if so, huzzah!
+                if (sequencesNotPerformed.get(i).contains(currentPath)){
+                    sequencesNotPerformed.get(i).remove(currentPath);
+                }
+            }
+        }
+    }
+
+    /**
+     * getSus
+     *
+     * Returns the sus by fishing through the SNP and getting a path of the smallest length
+     *
+     * @return a string if a sus is found or null if none found
+     */
+    public String getSus() {
+        for (int i=1; i<sequencesNotPerformed.size(); i++) { //go through path sizes
+            if (!sequencesNotPerformed.get(i).isEmpty()) { //if not empty, there's a victim inside
+                return sequencesNotPerformed.get(i).remove(0);//returns and removes sus
+            }
+        }
+        return null;
+    }
+
+    /**
+     * determineSusScore
+     *
+     * set the susScore based on the summation equation and constant
+     */
+    public void determineSusScore() {
+        //loop through mem to find length of sus
+        int susLength=0;
+
+        //get shortest length for sus
+        for (int i=1; i<sequencesNotPerformed.size(); i++){
+            if (!sequencesNotPerformed.get(i).isEmpty()) {
+                susLength = i;
+                break;
+            }
         }
 
-        //set all unique sequences sizes performed to false since we haven't moved yet
-        for (Boolean lengthComplete : sequenceLengthsFound){
-            lengthComplete = false;
+        //if the length is still 0 the sus has dried up, set to 0
+        if (susLength == 0){
+            susScore = 0;
+            return;
         }
-        sequenceLengthsFound[0] = true; //since you can't really perform a 0 length cmd
-	}
+
+        //otherwise add up summation and multiply by constant
+        double sum = 0;
+        for (int i=susLength; i>0; i--) {
+            sum+=i;
+        }
+
+        susScore = (1 / sum) * SUS_CONSTANT;
+    }
+
 
 	/**
      * tryPath
@@ -110,6 +224,7 @@ public class StateMachineAgent {
 			if (sensors[IS_GOAL] && i == pathToTry.size()-1) { //if at goal and last cmd return true
 				return true;
 			}
+            //TODO: BOMB this with something better
             else if (sensors[IS_GOAL]) { //if we hit the goal "early" stop and return false
                 return false;
             }
@@ -117,6 +232,21 @@ public class StateMachineAgent {
 		// If we make it through the entire loop, the path was unsuccessful
 		return false;
 	}
+
+    /**
+     * stringToPath
+     *
+     * Takes a string of chars and converts them into a path
+     *
+     * @param commands string to be converted
+     */
+    public Path stringToPath(String commands) {
+        ArrayList<Character> generatedPath = new ArrayList<Character>();
+        for (int i=0; i<commands.length(); i++) {
+            generatedPath.add(i, commands.charAt(i));
+        }
+        return new Path(generatedPath);
+    }
 
 	/**
 	 * getMostRecentPath
@@ -407,7 +537,7 @@ public class StateMachineAgent {
 		gilligan.env.printStateMachine();
 		gilligan.env.printPaths();
 
-        //call driver method
+        gilligan.exploreEnvironment();
 	}
 
 	protected StateMachineEnvironment getEnv() {
