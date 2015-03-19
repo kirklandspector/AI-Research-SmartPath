@@ -33,20 +33,22 @@ public class StateMachineAgent {
     private int SUS_CONSTANT = 10; //will become final after testing to find values
 
     /**
-     * The LMS (lama) is the longest matching sequence that matching with what the agent
+     * The LMS (llama) is the longest matching sequence that matching with what the agent
      * has just executed. A score will be built related to the length of the sequence
      * and the amount of moves to execute to "get to the goal." The idea behind this
      * is that eventually there will be long matching strings that occur frequently
      * and regularly get the agent to the goal... cross your fingers
      */
     //variables related to the LMS
-    private int lmsScore;
-    private int LMS_CONSTANT; //will become final after testing
+    private double lmsScore;
+    private int LMS_CONSTANT = 10; //will become final after testing
+    public static final int MATCHED_INDEX = 0;
+    public static final int MATCHED_LENGTH = 1;
 
-    private int RANDOM_SCORE = -1; //will become final after testing
+    private int RANDOM_SCORE = 1; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
-    double DUPLICATE_FORGIVENESS = .10; //10% chance a duplicate is permitted
+    double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted (S.W.A.G.)
 
 	// Turns debug printing on and off
 	boolean debug = true;
@@ -91,16 +93,29 @@ public class StateMachineAgent {
      * sentient capabilities...
      */
     public void exploreEnvironment() {
-        for(int i=0; i<10; i++) { //run ten commands
-            //TODO: Make this determine all scores and compare them
-
+        for(int i=0; i<20; i++) { //run 20 cycles
+            //Find sus and lms scores
             determineSusScore();
+            String currentLms = determineLmsScore();
 
-            String currentSus = getSus();
+            String pathToAttempt;
+            //pick larger score of the three
+            if (RANDOM_SCORE > susScore && RANDOM_SCORE > lmsScore) {
+                pathToAttempt = "" + generateSemiRandomAction();
+            }
+            else if (susScore > lmsScore) {
+                pathToAttempt = getSus();
+            }
+            else if (lmsScore > susScore) {
+                pathToAttempt = currentLms;
+            }
+            else {//if we tied, default to a rando to hopefully tweak them
+                pathToAttempt = "" + generateSemiRandomAction();
+            }
 
-            Path currentSusPath = stringToPath(currentSus);
-
-            tryPath(currentSusPath);
+            //execute "the chosen one"
+            Path finalPath = stringToPath(pathToAttempt);
+            tryPath(finalPath);
 
             scanAndRemoveNewSequences();
         }
@@ -196,6 +211,198 @@ public class StateMachineAgent {
         susScore = (1 / sum) * SUS_CONSTANT;
     }
 
+    /**
+     * fillPermutations
+     *
+     * driver method to generate all strings for the sequencesNotPerformed arraylist
+     *
+     * @param set set of chars that can be used to build strings (alphabet)
+     * @param k length of string to build up to
+     * @param permutations place to store the strings
+     */
+    public void fillPermutations(char set[], int k, ArrayList<String> permutations){
+        int n = set.length;
+        buildPermutations(set, "", n, k, permutations);
+    }
+
+    /**
+     * buildPermutations
+     *
+     * helper method to actually build all the permutations of the strings and store them in the arraylist
+     *
+     * @param set set of chars that can be used to build strings (alphabet)
+     * @param prefix used to slowly build up different permutations
+     * @param n length of set (sort of clumsy way to do it right now)
+     * @param k length of string to build up to
+     * @param permutations place to store the strings
+     */
+    public void buildPermutations(char set[], String prefix, int n, int k, ArrayList<String> permutations) {
+        // Base case: k is 0
+        if (k == 0) {
+            permutations.add(prefix);
+            return;
+        }
+
+        // One by one add all characters from set and recursively
+        // call for k equals to k-1
+        for (int i = 0; i < n; ++i) {
+            // Next character of input added
+            String newPrefix = prefix + set[i];
+            // k is decreased, because we have added a new character
+            buildPermutations(set, newPrefix, n, k - 1, permutations);
+        }
+    }
+
+    /**
+     * ************************************************************************************
+     * METHODS FOR THE LMS
+     * ************************************************************************************
+     */
+
+    /**
+     * maxMatchedString
+     *
+     * Finds the ending index of the longest substring in episodic memory before
+     * the previous goal matching the final string of actions the agent has
+     * taken and the length of the matched string
+     *
+     * @return The ending index of the longest substring matching the final string of actions
+     *         the agent has taken and the length of the matched string
+     */
+    private int[] maxMatchedString() {
+        int lastGoalIndex = findLastGoal(episodicMemory.size());
+        int[] scoreInfo = {0,0};//var to be returned
+
+        if (lastGoalIndex == -1) {
+            return scoreInfo;//since init to 0's the ending score will be poor
+        }
+
+        //If we've just reached the goal, then there is nothing to match
+        if (lastGoalIndex == episodicMemory.size() - 1)
+        {
+            return scoreInfo;//again, both are 0's for bad outcome
+        }
+
+        //Find the longest matching subsequence (LMS)
+        int maxStringIndex = -1;
+        int maxStringLength = 0;
+        int currStringLength;
+        for (int i = lastGoalIndex-1; i >= 0; i--) {
+            currStringLength = matchedMemoryStringLength(i);
+            if (currStringLength > maxStringLength) {
+                maxStringLength = currStringLength;
+                maxStringIndex = i+1;
+            }
+        }//for
+
+        if (maxStringIndex < 0) {
+            return scoreInfo;//bad score
+        }
+
+        else {
+            scoreInfo[MATCHED_INDEX] = maxStringIndex;
+            scoreInfo[MATCHED_LENGTH] = maxStringLength;
+            return scoreInfo;
+        }
+    }//maxMatchedStringIndex
+
+    /**
+     * determineLmsScore
+     *
+     * Figures out the lms score and sets it using passed info from maxMatchedString
+     *
+     * @return pathToAttempt the string to exec if lms is chosen
+     */
+    private String determineLmsScore() {
+        int[] matchedStringInfo = maxMatchedString();
+        String pathToAttempt = stepsToGoal(matchedStringInfo[MATCHED_INDEX]);
+        //calc score lengthMatched/numStepsToGoal
+        double lengthMatched = matchedStringInfo[MATCHED_LENGTH];
+        double numStepsToGoal = pathToAttempt.length();
+
+        lmsScore = (lengthMatched / numStepsToGoal) * LMS_CONSTANT;
+        return pathToAttempt;
+    }
+
+    /**
+     * stepsToGoal
+     *
+     * takes an index and finds the path to reach the next goal
+     *
+     * @return steps the string to exec to "reach" goal
+     */
+    private String stepsToGoal(int idx) {
+        //loop to next goal appending all chars
+        String steps = "";
+        if (idx ==0)//no mem to evaluate
+            return " ";
+        for (int i=idx; i<episodicMemory.size(); i++) {
+            steps += episodicMemory.get(i).command;
+            //break if at goal
+            if (episodicMemory.get(i).sensorValue == GOAL){
+                break;
+            }
+        }
+        return steps;
+    }
+
+    /**
+     * matchedMemoryStringLength
+     *
+     * Starts from a given index and the end of the Agent's episodic memory and moves backwards, returning
+     * the number of consecutive matching characters
+     * @param endOfStringIndex The index from which to start the backwards search
+     * @return the number of consecutive matching characters
+     */
+    private int matchedMemoryStringLength(int endOfStringIndex) {
+        int length = 0;
+        int indexOfMatchingAction = episodicMemory.size() - 1;
+        boolean match;
+        for (int i = endOfStringIndex; i >= 0; i--) {
+            //We want to compare the command from the prev episode and the
+            //sensors from the "right now" episode to the sequence at the
+            //index indicated by 'i'
+            char currCmd = episodicMemory.get(indexOfMatchingAction).command;
+            int currSensors = episodicMemory.get(indexOfMatchingAction).sensorValue;
+            char prevCmd = episodicMemory.get(i).command;
+            int prevSensors = episodicMemory.get(i).sensorValue;
+
+            match = ( (currCmd == prevCmd) && (currSensors == prevSensors) );
+
+            if (match) {
+                length++;
+                indexOfMatchingAction--;
+            }
+            else {
+                return length;
+            }
+        }//for
+
+        return length;
+    }//matchedMemoryStringLength
+
+
+    /**
+     * findLastGoal
+     *
+     * Searches backwards through the list of move-result pairs from the given index
+     * @param toStart The index from which to start the backwards search
+     * @return The index of the previous goal
+     */
+    private int findLastGoal(int toStart) {
+        for (int i = toStart - 1; i > 0; i --) {
+            if (episodicMemory.get(i).sensorValue == GOAL) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * ************************************************************************************
+     * METHODS FOR NAVIGATION
+     * ************************************************************************************
+     */
 
 	/**
      * tryPath
@@ -224,10 +431,6 @@ public class StateMachineAgent {
 			if (sensors[IS_GOAL] && i == pathToTry.size()-1) { //if at goal and last cmd return true
 				return true;
 			}
-            //TODO: BOMB this with something better
-            else if (sensors[IS_GOAL]) { //if we hit the goal "early" stop and return false
-                return false;
-            }
 		}
 		// If we make it through the entire loop, the path was unsuccessful
 		return false;
@@ -316,10 +519,35 @@ public class StateMachineAgent {
         do {
             random = new Random();
             possibleCmd = alphabet[random.nextInt(alphabet.length)];
-        } while (possibleCmd != lastCommand || dupPermitted); //different cmd or dups allowed
+            if (dupPermitted)//if they are allowed we don't care to check for dup
+                break;
+        } while (possibleCmd == lastCommand); //same cmd, redo loop
 
 		return possibleCmd;
 	}
+
+    /**
+     * Takes in an agent's sensor data and encodes it into an integer
+     * @param sensors The agent's sensor data
+     * @return the integer encoding of that sensor data
+     */
+    private int encodeSensors(boolean[] sensors) {
+        int encodedSensorResult;
+
+        if (sensors[IS_GOAL]) {
+            encodedSensorResult = GOAL;
+        }
+
+        else if (sensors[IS_NEW_STATE]) {
+            encodedSensorResult = TRANSITION_ONLY;
+        }
+
+        else {
+            encodedSensorResult = NO_TRANSITION;
+        }
+
+        return encodedSensorResult;
+    }
 
 	/**
 	 * Uses testPath arraylist to start agent on a specific path for testing purposes
@@ -334,159 +562,6 @@ public class StateMachineAgent {
 			System.out.println("WARNING: your test path is out of commands and hasn't reached the goal, executing random action");
 			return generateSemiRandomAction();
 		}
-	}
-
-    /**
-     * fillPermutations
-     *
-     * driver method to generate all strings for the sequencesNotPerformed arraylist
-     *
-     * @param set set of chars that can be used to build strings (alphabet)
-     * @param k length of string to build up to
-     * @param permutations place to store the strings
-     */
-    public void fillPermutations(char set[], int k, ArrayList<String> permutations){
-        int n = set.length;
-        buildPermutations(set, "", n, k, permutations);
-    }
-
-    /**
-     * buildPermutations
-     *
-     * helper method to actually build all the permutations of the strings and store them in the arraylist
-     *
-     * @param set set of chars that can be used to build strings (alphabet)
-     * @param prefix used to slowly build up different permutations
-     * @param n length of set (sort of clumsy way to do it right now)
-     * @param k length of string to build up to
-     * @param permutations place to store the strings
-     */
-    public void buildPermutations(char set[], String prefix, int n, int k, ArrayList<String> permutations) {
-        // Base case: k is 0
-        if (k == 0) {
-            permutations.add(prefix);
-            return;
-        }
-
-        // One by one add all characters from set and recursively
-        // call for k equals to k-1
-        for (int i = 0; i < n; ++i) {
-            // Next character of input added
-            String newPrefix = prefix + set[i];
-            // k is decreased, because we have added a new character
-            buildPermutations(set, newPrefix, n, k - 1, permutations);
-        }
-    }
-
-	/**
-	 * Finds the ending index of the longest substring in episodic memory before
-	 * the previous goal matching the final string of actions the agent has
-	 * taken
-	 *
-	 * @return The ending index of the longest substring matching the final string of actions
-	 *         the agent has taken
-	 */
-	private int maxMatchedStringIndex() {
-		int lastGoalIndex = findLastGoal(episodicMemory.size());
-		if (lastGoalIndex == -1) {
-			return -1;
-		}
-
-		//If we've just reached the goal, then there is nothing to match
-		if (lastGoalIndex == episodicMemory.size() - 1)
-		{
-			return -1;
-		}
-
-		//Find the longest matching subsequence (LMS)
-		int maxStringIndex = -1;
-		int maxStringLength = 0;
-		int currStringLength;
-		for (int i = lastGoalIndex-1; i >= 0; i--) {
-			currStringLength = matchedMemoryStringLength(i);
-			if (currStringLength > maxStringLength) {
-				maxStringLength = currStringLength;
-				maxStringIndex = i+1;
-			}
-		}//for
-
-		if (maxStringIndex < 0) {
-			return 0;
-		}
-		else {
-			return maxStringIndex;
-		}
-	}//maxMatchedStringIndex
-
-	/**
-	 * Starts from a given index and the end of the Agent's episodic memory and moves backwards, returning
-	 * the number of consecutive matching characters
-	 * @param endOfStringIndex The index from which to start the backwards search
-	 * @return the number of consecutive matching characters
-	 */
-	private int matchedMemoryStringLength(int endOfStringIndex) {
-		int length = 0;
-		int indexOfMatchingAction = episodicMemory.size() - 1;
-		boolean match;
-		for (int i = endOfStringIndex; i >= 0; i--) {			
-			//We want to compare the command from the prev episode and the 
-			//sensors from the "right now" episode to the sequence at the 
-			//index indicated by 'i'
-			char currCmd = episodicMemory.get(indexOfMatchingAction - 1).command;
-			int currSensors = episodicMemory.get(indexOfMatchingAction).sensorValue;
-			char prevCmd = episodicMemory.get(i).command;
-			int prevSensors = episodicMemory.get(i+1).sensorValue;
-
-			match = ( (currCmd == prevCmd) && (currSensors == prevSensors) );
-
-			if (match) {
-				length++;
-				indexOfMatchingAction--;
-			}
-			else {
-				return length;
-			}
-		}//for
-
-		return length;
-	}//matchedMemoryStringLength
-
-
-	/**
-	 * Searches backwards through the list of move-result pairs from the given index
-	 * @param toStart The index from which to start the backwards search
-	 * @return The index of the previous goal
-	 */
-	private int findLastGoal(int toStart) {
-		for (int i = toStart - 1; i > 0; i --) {
-			if (episodicMemory.get(i).sensorValue == GOAL) {
-				return i;
-			}
-		}
-		return -1;
-	}
-
-	/**
-	 * Takes in an agent's sensor data and encodes it into an integer
-	 * @param sensors The agent's sensor data
-	 * @return the integer encoding of that sensor data
-	 */
-	private int encodeSensors(boolean[] sensors) {
-		int encodedSensorResult;
-
-		if (sensors[IS_GOAL]) {
-			encodedSensorResult = GOAL;
-		}
-
-		else if (sensors[IS_NEW_STATE]) {
-			encodedSensorResult = TRANSITION_ONLY;
-		}
-
-		else {
-			encodedSensorResult = NO_TRANSITION;
-		}
-
-		return encodedSensorResult;
 	}
 
 	/**
