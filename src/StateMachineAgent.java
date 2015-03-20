@@ -10,6 +10,7 @@ public class StateMachineAgent {
 	private StateMachineEnvironment env;
 	private char[] alphabet;
 	private ArrayList<Episode> episodicMemory;
+    private int currentSuccesses = 0;
 
 	//These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
@@ -30,7 +31,7 @@ public class StateMachineAgent {
     private double susScore = 0;
     private static final int MAX_SEQUENCE_SIZE = 10; //just picked 10 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
-    private int SUS_CONSTANT = 10; //will become final after testing to find values
+    private static int SUS_CONSTANT = 10; //will become final after testing to find values
 
     /**
      * The LMS (llama) is the longest matching sequence that matching with what the agent
@@ -41,11 +42,11 @@ public class StateMachineAgent {
      */
     //variables related to the LMS
     private double lmsScore;
-    private int LMS_CONSTANT = 10; //will become final after testing
+    private static int LMS_CONSTANT = 10; //will become final after testing
     public static final int MATCHED_INDEX = 0;
     public static final int MATCHED_LENGTH = 1;
 
-    private int RANDOM_SCORE = 1; //will become final after testing
+    private static int RANDOM_SCORE = 1; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted (S.W.A.G.)
@@ -62,9 +63,10 @@ public class StateMachineAgent {
 	 */
 	public StateMachineAgent() {
 		//int[][] testTransitions = new int[][] {{2, 1, 0},{1, 0, 2},{2, 2, 2}};
-		int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
+		//int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
 		//int[][] testTransitions = new int[][]{{0,1},{1,1}};
-		env = new StateMachineEnvironment(testTransitions, 2, 3);
+		//env = new StateMachineEnvironment(testTransitions, 2, 3);
+        env = new StateMachineEnvironment();
 		alphabet = env.getAlphabet();
 
 		episodicMemory = new ArrayList<Episode>();
@@ -93,7 +95,7 @@ public class StateMachineAgent {
      * sentient capabilities...
      */
     public void exploreEnvironment() {
-        for(int i=0; i<20; i++) { //run 20 cycles
+        while (episodicMemory.size() < 1000) { //perform 1000 cmds
             //Find sus and lms scores
             determineSusScore();
             String currentLms = determineLmsScore();
@@ -117,7 +119,7 @@ public class StateMachineAgent {
             Path finalPath = stringToPath(pathToAttempt);
             tryPath(finalPath);
 
-            scanAndRemoveNewSequences();
+            scanAndRemoveNewSequences(finalPath.size());
         }
     }
 
@@ -133,8 +135,10 @@ public class StateMachineAgent {
      * Rips through the memory and finds all unique sequences that have been performed
      * and not yet removed from sequencesNotPerformed. Should be called after every
      * command the agent makes
+     *
+     * @param numCmdsExecuted the number of cmds commited by the last try path
      */
-    public void scanAndRemoveNewSequences(){
+    public void scanAndRemoveNewSequences(int numCmdsExecuted){
         //iterate through all sizes of possible paths, if no unique paths exist, move on
         //otherwise scan mem and remove matching sequences from SNP arraylist
         for (int i=1; i<=MAX_SEQUENCE_SIZE; i++){
@@ -148,8 +152,15 @@ public class StateMachineAgent {
                 break;
             }
 
-            //otherwise we'll go through memory of this size and check against SNP
-            for (int j=1; j<=episodicMemory.size()-i; j++){ //iterate over all commands - i to stop fence posting
+            //otherwise we'll go through recently changed memory of this size and check against SNP
+            //iterate over all commands - i to stop fence posting error
+            //determine starting position
+            int startPosition = episodicMemory.size() - 1;
+            int changedMemory = MAX_SEQUENCE_SIZE + numCmdsExecuted;
+            while (startPosition > 1 && startPosition >= episodicMemory.size() - changedMemory) {
+                startPosition--;
+            }
+            for (int j=startPosition; j<=episodicMemory.size()-i; j++){
                 String currentPath = ""; //path in memory to test
                 for (int k=0; k<i; k++){ //iterate the size of the path through
                     currentPath += episodicMemory.get(j+k).command;
@@ -428,6 +439,10 @@ public class StateMachineAgent {
 			int encodedSensorResult = encodeSensors(sensors);
 			episodicMemory.add(new Episode(pathToTry.get(i), encodedSensorResult));
 
+            if (sensors[IS_GOAL]){
+                currentSuccesses++;
+            }
+
 			if (sensors[IS_GOAL] && i == pathToTry.size()-1) { //if at goal and last cmd return true
 				return true;
 			}
@@ -608,11 +623,31 @@ public class StateMachineAgent {
 	public static void main(String [ ] args)
 	{
 		StateMachineAgent gilligan = new StateMachineAgent();
-		System.out.println("ENVIRONMENT INFO:");
-		gilligan.env.printStateMachine();
-		gilligan.env.printPaths();
+        double[][][] successStats = new double[4][51][51];
+        //constants loops
+        for (int i=1; i<4; i++){//random loop
+            gilligan.RANDOM_SCORE = i;
+            System.out.println("Testing Random Constant: " + i);
+            for (int j=10; j<50; j++){//sus loop
+                gilligan.SUS_CONSTANT = j;
+                System.out.println("Testing Sus Constant: " + j);
+                for (int k=10; k<50; k++){//lms loop
+                    gilligan.LMS_CONSTANT = k;
+                    System.out.println("Testing Lms Constant: " + k);
 
-        gilligan.exploreEnvironment();
+                    double sum = 0;//total num successes
+                    for (int l=0; l<100; l++){//number of machines
+                        gilligan = new StateMachineAgent();
+                        gilligan.exploreEnvironment();
+                        sum += gilligan.currentSuccesses;
+                    }
+                    double averageSuccesses = sum / 1000;
+                    successStats[i][j][k] = averageSuccesses;
+
+                }//lms
+            }//sus
+        }//random
+        System.out.println("debug");
 	}
 
 	protected StateMachineEnvironment getEnv() {
