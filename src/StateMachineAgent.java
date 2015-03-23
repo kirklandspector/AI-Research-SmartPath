@@ -1,4 +1,6 @@
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
@@ -29,7 +31,7 @@ public class StateMachineAgent {
      */
     //variables related to the SUS
     private double susScore = 0;
-    private static final int MAX_SEQUENCE_SIZE = 10; //just picked 10 as a guess
+    private static final int MAX_SEQUENCE_SIZE = 7; //just picked 7 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
     private static int SUS_CONSTANT = 10; //will become final after testing to find values
 
@@ -620,34 +622,47 @@ public class StateMachineAgent {
      * sends the agent through many rounds of exploring the environment in hopes
      * to find a consistent way of navigating
 	 */
-	public static void main(String [ ] args)
-	{
+	public static void main(String [ ] args) {
 		StateMachineAgent gilligan = new StateMachineAgent();
-        double[][][] successStats = new double[4][51][51];
-        //constants loops
-        for (int i=1; i<4; i++){//random loop
-            gilligan.RANDOM_SCORE = i;
-            System.out.println("Testing Random Constant: " + i);
-            for (int j=10; j<50; j++){//sus loop
-                gilligan.SUS_CONSTANT = j;
-                System.out.println("Testing Sus Constant: " + j);
-                for (int k=10; k<50; k++){//lms loop
-                    gilligan.LMS_CONSTANT = k;
-                    System.out.println("Testing Lms Constant: " + k);
+        try {
+            FileWriter csv = new FileWriter("C:\\Users\\26kir_000\\Desktop\\AIReport.csv");
+            csv.append("Random,SUS,LMS,Average Score\n");
 
-                    double sum = 0;//total num successes
-                    for (int l=0; l<100; l++){//number of machines
-                        gilligan = new StateMachineAgent();
-                        gilligan.exploreEnvironment();
-                        sum += gilligan.currentSuccesses;
-                    }
-                    double averageSuccesses = sum / 1000;
-                    successStats[i][j][k] = averageSuccesses;
+            double[][][] successStats = new double[4][51][51];
+            //constants loops
+            for (int i = 1; i < 4; i++) {//random loop
+                gilligan.RANDOM_SCORE = i;
+                for (int j = 10; j < 50; j++) {//sus loop
+                    gilligan.SUS_CONSTANT = j;
+                    for (int k = 10; k < 50; k++) {//lms loop
+                        gilligan.LMS_CONSTANT = k;
+                        System.out.println("Testing Random Constant: " + i
+                                + " ~~~ Testing SUS Constant: " + j
+                                + " ~~~ Testing LMS Constant: " + k);
 
-                }//lms
-            }//sus
-        }//random
-        System.out.println("debug");
+                        double sum = 0;//total num successes
+                        for (int l = 0; l < 100; l++) {//number of machines
+                            gilligan = new StateMachineAgent();
+                            gilligan.RANDOM_SCORE=1;
+                            gilligan.SUS_CONSTANT=0;
+                            gilligan.LMS_CONSTANT=0;
+                            gilligan.exploreEnvironment();
+                            sum += gilligan.currentSuccesses;
+                        }
+                        double averageSuccesses = sum / 1000;
+                        successStats[i][j][k] = averageSuccesses;
+
+                        csv.append(i + "," + j + "," + k + "," + averageSuccesses + "\n");
+                    }//lms
+                }//sus
+            }//random
+            csv.flush();
+            csv.close();
+        }
+        catch (IOException e) {
+            System.out.println("Could not create file, what a noob...");
+            System.exit(-1);
+        }
 	}
 
 	protected StateMachineEnvironment getEnv() {
