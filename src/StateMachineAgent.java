@@ -3,6 +3,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.DoubleSummaryStatistics;
 import java.util.Random;
 
 
@@ -13,6 +14,8 @@ public class StateMachineAgent {
 	private char[] alphabet;
 	private ArrayList<Episode> episodicMemory;
     private int currentSuccesses = 0;
+    private static ArrayList<ArrayList<Integer>> stepsToGoal = new ArrayList<ArrayList<Integer>>();
+    private static int machineNum = 0;
 
 	//These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
@@ -31,9 +34,9 @@ public class StateMachineAgent {
      */
     //variables related to the SUS
     private double susScore = 0;
-    private static final int MAX_SEQUENCE_SIZE = 7; //just picked 7 as a guess
+    private static final int MAX_SEQUENCE_SIZE = 7; //picked 7 as a guess, perfect guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
-    private static int SUS_CONSTANT = 10; //will become final after testing to find values
+    private static final int SUS_CONSTANT = 1;
 
     /**
      * The LMS (llama) is the longest matching sequence that matching with what the agent
@@ -44,14 +47,14 @@ public class StateMachineAgent {
      */
     //variables related to the LMS
     private double lmsScore;
-    private static int LMS_CONSTANT = 10; //will become final after testing
+    private static final int LMS_CONSTANT = 1;
     public static final int MATCHED_INDEX = 0;
     public static final int MATCHED_LENGTH = 1;
 
-    private static int RANDOM_SCORE = 1; //will become final after testing
+    private static final int RANDOM_SCORE = 9999999;
 
     //chance that a duplicate cmd is allowed if a random action is necessary
-    double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted (S.W.A.G.)
+    double DUPLICATE_FORGIVENESS = 1; //for now, always allow dups
 
 	// Turns debug printing on and off
 	boolean debug = true;
@@ -97,7 +100,7 @@ public class StateMachineAgent {
      * sentient capabilities...
      */
     public void exploreEnvironment() {
-        while (episodicMemory.size() < 1000) { //perform 1000 cmds
+        while (episodicMemory.size() < 50000) { //perform 10000 cmds
             //Find sus and lms scores
             determineSusScore();
             String currentLms = determineLmsScore();
@@ -445,6 +448,13 @@ public class StateMachineAgent {
                 currentSuccesses++;
             }
 
+            if (episodicMemory.size() % 10 == 0 && currentSuccesses == 0) {
+                stepsToGoal.get(machineNum).add(0);
+            }
+            else if (episodicMemory.size() % 10 == 0) {
+                stepsToGoal.get(machineNum).add(episodicMemory.size() / currentSuccesses);
+            }
+
 			if (sensors[IS_GOAL] && i == pathToTry.size()-1) { //if at goal and last cmd return true
 				return true;
 			}
@@ -623,35 +633,28 @@ public class StateMachineAgent {
      * to find a consistent way of navigating
 	 */
 	public static void main(String [ ] args) {
-		StateMachineAgent gilligan = new StateMachineAgent();
+		StateMachineAgent gilligan;
         try {
             FileWriter csv = new FileWriter("C:\\Users\\26kir_000\\Desktop\\AIReport.csv");
-            csv.append("Random,SUS,LMS,Average Score\n");
+            csv.append("Number of Commands,Average Steps to Goal\n");
 
-            //constants loops
-            for (int i = 1; i < 6; i++) {//random loop
-                gilligan.RANDOM_SCORE = i;
-                for (int j = 1; j < 50; j++) {//sus loop
-                    gilligan.SUS_CONSTANT = j;
-                    for (int k = 1; k < 50; k++) {//lms loop
-                        gilligan.LMS_CONSTANT = k;
-                        System.out.println("Testing Random Constant: " + i
-                                + " ~~~ Testing SUS Constant: " + j
-                                + " ~~~ Testing LMS Constant: " + k);
+            for (machineNum = 0; machineNum < 50; machineNum++) {
+                gilligan = new StateMachineAgent();
+                stepsToGoal.add(machineNum, new ArrayList<Integer>());
+                gilligan.exploreEnvironment();
+                System.out.println(machineNum);
+            }
 
-                        double sum = 0;//total num successes
-                        for (int l = 0; l < 100; l++) {//number of machines
-                            gilligan = new StateMachineAgent();
-                            gilligan.exploreEnvironment();
-                            sum += gilligan.currentSuccesses;
-                        }
-                        double averageSuccesses = sum / 100;
+            //average out info
+            for (int i=0; i<stepsToGoal.get(0).size(); i ++) {
+                double sum = 0;
+                for (ArrayList<Integer> machine : stepsToGoal) {
+                    sum += machine.get(i);
+                }
+                double avg = sum / (double)stepsToGoal.size();
+                csv.append(i*10 + "," + avg + "\n");
+            }
 
-                        csv.append(i + "," + j + "," + k + "," + averageSuccesses + "\n");
-                    }//lms
-                    csv.flush();
-                }//sus
-            }//random
             csv.flush();
             csv.close();
         }
