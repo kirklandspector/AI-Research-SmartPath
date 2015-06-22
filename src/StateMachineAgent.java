@@ -64,37 +64,31 @@ public class StateMachineAgent {
 	 * The constructor for the agent simply initializes it's instance variables
 	 */
 	public StateMachineAgent() {
-		//int[][] testTransitions = new int[][] {{2, 1, 0},{1, 0, 2},{2, 2, 2}};
-		//int[][] testTransitions = new int[][]{{0,1},{1,2},{2,2}};
-		//int[][] testTransitions = new int[][]{{0,1},{1,1}};
-		//env = new StateMachineEnvironment(testTransitions, 2, 3);
         env = new StateMachineEnvironment();
 		alphabet = env.getAlphabet();
-
 		episodicMemory = new ArrayList<Episode>();
-		//Need a first episode that is empty
+
+		//prime the epmem with a first episode that is empty
 		episodicMemory.add(new Episode(' ', NO_TRANSITION));//the space cmd means unknown cmd for first memory
 
-        //build the permutations of all sequences that can be performed
+        //build the permutations of all sequences (up to max SUS len) 
         sequencesNotPerformed = new ArrayList<ArrayList<String>>();
         sequencesNotPerformed.add(0, null);//since a path of size 0 should be skipped (might not be necessary)
-
-        //iterate over all path sizes and add the permutations to the sequencesNotPerformed arrays
         for(int lengthSize=1; lengthSize<=MAX_SEQUENCE_SIZE; lengthSize++){
             ArrayList<String> tempList = new ArrayList<String>();
             fillPermutations(alphabet, lengthSize, tempList);
             sequencesNotPerformed.add(lengthSize, tempList);
         }
-	}
+	}//StateMachineAgent ctor
 
     /**
      * exploreEnvironment
      *
      * Main Driver Method of Program
      *
-     * Sets the agent free into the wild allowing him to roam free. This means that he'll
-     * use the different scores to decide how to navigate the environment giving him full
-     * sentient capabilities...
+     * Sets the agent free into the wild allowing him to roam free. This means
+     * that he'll use the different scores to decide how to navigate the
+     * environment giving him full sentient capabilities...
      */
     public void exploreEnvironment() {
         while (episodicMemory.size() < 1000) { //perform 1000 cmds
@@ -113,7 +107,7 @@ public class StateMachineAgent {
             else if (lmsScore > susScore) {
                 pathToAttempt = currentLms;
             }
-            else {//if we tied, default to a rando to hopefully tweak them
+            else {//if we tied, default to a random to hopefully tweak them
                 pathToAttempt = "" + generateSemiRandomAction();
             }
 
@@ -122,8 +116,8 @@ public class StateMachineAgent {
             tryPath(finalPath);
 
             scanAndRemoveNewSequences(finalPath.size());
-        }
-    }
+        }//while
+    }//exploreEnvironment
 
     /**
      * ************************************************************************************
@@ -134,9 +128,13 @@ public class StateMachineAgent {
     /**
      * scanAndRemoveNewSequences
      *
-     * Rips through the memory and finds all unique sequences that have been performed
-     * and not yet removed from sequencesNotPerformed. Should be called after every
-     * command the agent makes
+     * Rips through the memory and finds all unique sequences that have been
+     * performed and not yet removed from sequencesNotPerformed. Should be
+     * called after every command the agent makes
+     *
+     * TODO:  Could this be more efficient by exploiting the fact that this is
+     * called at every step and thus only sequences that end in the most recent
+     * action could be removed.
      *
      * @param numCmdsExecuted the number of cmds commited by the last try path
      */
@@ -172,14 +170,15 @@ public class StateMachineAgent {
                 if (sequencesNotPerformed.get(i).contains(currentPath)){
                     sequencesNotPerformed.get(i).remove(currentPath);
                 }
-            }
-        }
-    }
+            }//for
+        }//for
+    }//scanAndRemoveNewSequences
 
     /**
      * getSus
      *
-     * Returns the sus by fishing through the SNP and getting a path of the smallest length
+     * Returns the sus by fishing through the sequencesNotPerformed and getting
+     * a path of the smallest length
      *
      * @return a string if a sus is found or null if none found
      */
@@ -222,12 +221,13 @@ public class StateMachineAgent {
         }
 
         susScore = (1 / sum) * SUS_CONSTANT;
-    }
+    }//determineSusScore
 
     /**
      * fillPermutations
      *
-     * driver method to generate all strings for the sequencesNotPerformed arraylist
+     * driver method to generate all strings for the sequencesNotPerformed
+     * arraylist
      *
      * @param set set of chars that can be used to build strings (alphabet)
      * @param k length of string to build up to
@@ -241,7 +241,8 @@ public class StateMachineAgent {
     /**
      * buildPermutations
      *
-     * helper method to actually build all the permutations of the strings and store them in the arraylist
+     * helper method to actually build all the permutations of the strings and
+     * store them in the arraylist
      *
      * @param set set of chars that can be used to build strings (alphabet)
      * @param prefix used to slowly build up different permutations
@@ -264,7 +265,7 @@ public class StateMachineAgent {
             // k is decreased, because we have added a new character
             buildPermutations(set, newPrefix, n, k - 1, permutations);
         }
-    }
+    }//buildPermutations
 
     /**
      * ************************************************************************************
@@ -317,7 +318,7 @@ public class StateMachineAgent {
             scoreInfo[MATCHED_LENGTH] = maxStringLength;
             return scoreInfo;
         }
-    }//maxMatchedStringIndex
+    }//maxMatchedString
 
     /**
      * determineLmsScore
@@ -335,7 +336,7 @@ public class StateMachineAgent {
 
         lmsScore = (lengthMatched / numStepsToGoal) * LMS_CONSTANT;
         return pathToAttempt;
-    }
+    }//determineLmsScore
 
     /**
      * stepsToGoal
@@ -451,7 +452,7 @@ public class StateMachineAgent {
 		}
 		// If we make it through the entire loop, the path was unsuccessful
 		return false;
-	}
+	}//tryPath
 
     /**
      * stringToPath
@@ -466,7 +467,7 @@ public class StateMachineAgent {
             generatedPath.add(i, commands.charAt(i));
         }
         return new Path(generatedPath);
-    }
+    }//stringToPath
 
 	/**
 	 * getMostRecentPath
@@ -484,7 +485,7 @@ public class StateMachineAgent {
 		return new Path(pathChars);
 	}
 
-    //TODO: Take this code for later use
+    //TODO: Save this method for later use
 	/**
      * reset
      *
@@ -628,7 +629,7 @@ public class StateMachineAgent {
             FileWriter csv = new FileWriter("C:\\Users\\26kir_000\\Desktop\\AIReport.csv");
             csv.append("Random,SUS,LMS,Average Score\n");
 
-            //constants loops
+            //constants loops (trying many permutations of values)
             for (int i = 1; i < 6; i++) {//random loop
                 gilligan.RANDOM_SCORE = i;
                 for (int j = 1; j < 50; j++) {//sus loop
