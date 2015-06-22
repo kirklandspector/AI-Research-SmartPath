@@ -25,10 +25,9 @@ import java.util.Random;
 public class StateMachineEnvironment {
 	
 	// Instance variables
-	public static int NUM_STATES = 5;
+	public static int NUM_STATES = 6;
 	public static int GOAL_STATE = NUM_STATES - 1;
-	public static int ALPHABET_SIZE = 3;  //for now, this can't exceed 26
-	public static int NUM_TRANSITIONS = ALPHABET_SIZE/2;
+	public static int ALPHABET_SIZE = 4;  //for now, this can't exceed 26
 
 	 //These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
@@ -39,6 +38,9 @@ public class StateMachineEnvironment {
 	private char[] alphabet;
 	private String[] paths;
 	public int currentState;
+
+    //this will be useful
+    private Random random = new Random();
 	
 	//DEBUG
 	private boolean debug = false;
@@ -68,11 +70,10 @@ public class StateMachineEnvironment {
 	 * A constructor which allows us to hard code state machine transitions
 	 * for testing purposes 
 	 */
-	public StateMachineEnvironment(int[][] transitions, int alphaSize, int numTransitions) {
+	public StateMachineEnvironment(int[][] transitions, int alphaSize) {
 		NUM_STATES = transitions.length;
 		GOAL_STATE = NUM_STATES - 1;
 		ALPHABET_SIZE = alphaSize;
-		NUM_TRANSITIONS = numTransitions;
 		
 		paths = new String[NUM_STATES];
 		paths[GOAL_STATE] = "";
@@ -127,7 +128,6 @@ public class StateMachineEnvironment {
 		//state we are transitioning from, then the numerical index of the
 		//alphabetical character being read
 		transition = new int[NUM_STATES][alphabet.length];
-		Random random = new Random();
 		int charToTransition;
 
         	// //DEBUG
@@ -146,9 +146,9 @@ public class StateMachineEnvironment {
 		//transitions out of each state in the state machine
 		for (int i = 0; i < NUM_STATES; i++) {
 			
-			//Generate a number of transitions to separate states equal to the
-			//number of transitions previously set
-			for (int j = 0; j < NUM_TRANSITIONS; j++) {
+			//Generate a random number of transitions
+            int numTransitions = random.nextInt(alphabet.length) + 1;
+			for (int j = 0; j < numTransitions; j++) {
 				
 				//Randomly generate a character to transition on
 				charToTransition = random.nextInt(transition[i].length);
@@ -209,6 +209,50 @@ public class StateMachineEnvironment {
         }
         System.out.println();
     }
+	
+	 /**
+     * A method which prints a .dot file (Graphviz) for visualizing a state machine
+     */
+    public void printStateMachineGraph() {
+        System.out.println("digraph finite_state_machine {");
+        System.out.println("node [shape = doublecircle]; Goal;");
+        System.out.println("node [shape = circle];     ");
+
+        //for each possible source state (skipping goal state)
+        for (int i = 0; i < NUM_STATES - 1; i++) {
+            String src = "S" + i;
+
+            //for each possible destination state
+            for (int j = 0; j < NUM_STATES; j++) {
+                String dest = "S" + j; 
+                String actions = "";
+
+                //find all actions that lead from source to dest
+                for (int k = 0; k < alphabet.length; k++) {
+                    if (transition[i][k] == j)
+                    {
+                        actions = actions + alphabet[k] + ",";
+                    }
+                }
+
+                //if no actions found, skip
+                if (actions.length() == 0) continue;
+
+                //remove the trailing command on the actions list
+                actions = actions.substring(0,actions.length() - 1);
+
+                //if the destination is the goal, call it such
+                if (j == GOAL_STATE)
+                {
+                    dest = "Goal";
+                }
+                    
+                System.out.println("    " + src + " -> " + dest + " [ label = \"" + actions + "\" ];");
+            }//for
+        }//for
+
+        System.out.println("}");
+    }//printStateMachineGraph
 	
 	/**
 	 * Resets the current state back to a state not the goal
