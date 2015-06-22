@@ -14,6 +14,9 @@ public class StateMachineAgent {
 	private ArrayList<Episode> episodicMemory;
     private int currentSuccesses = 0;
 
+    //This will be useful
+    public static Random random = new Random();
+
 	//These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
 	private static final int IS_GOAL = 1;
@@ -23,6 +26,12 @@ public class StateMachineAgent {
 	public static final int TRANSITION_ONLY = 1;
 	public static final int GOAL = 2;
 
+    //Number of state machines to test a given constant combo with
+    public static final int NUM_MACHINES = 100;
+
+    //filename to store experimental results
+    public static final String OUTPUT_FILE = "AIReport.csv";
+    
     /**
      * The SUS is the shortest unique sequence that has not been performed yet.
      * A score will be made to evaluate if it will be chosen as the next path
@@ -80,6 +89,11 @@ public class StateMachineAgent {
             sequencesNotPerformed.add(lengthSize, tempList);
         }
 	}//StateMachineAgent ctor
+
+    /** accessor */
+	protected StateMachineEnvironment getEnv() {
+		return env;
+	}
 
     /**
      * exploreEnvironment
@@ -529,13 +543,11 @@ public class StateMachineAgent {
         }
 
         //keep generating random moves till it is different from last or dups are allowed
-        Random random;
         char possibleCmd;
         Episode lastEpisode = episodicMemory.get(episodicMemory.size() - 1);
         char lastCommand = lastEpisode.command;
 
         do {
-            random = new Random();
             possibleCmd = alphabet[random.nextInt(alphabet.length)];
             if (dupPermitted)//if they are allowed we don't care to check for dup
                 break;
@@ -617,53 +629,120 @@ public class StateMachineAgent {
 		return -1;
 	}
 
-	/**
-	 * main
+    /**
+     * tryOneCombo
      *
-     * sends the agent through many rounds of exploring the environment in hopes
-     * to find a consistent way of navigating
-	 */
-	public static void main(String [ ] args) {
-		StateMachineAgent gilligan = new StateMachineAgent();
+     * a helper method for trying one particular combination of SUS/LMS/Random
+     * weights.  THis is meant to be called from main()
+     *
+     * @param csv         an open file to write to
+     * @param randWeight  weight for random choice
+     * @param susWeight   weight for SUS choice
+     * @param lmsWeight   weight for LMS choice
+     */
+    public static void tryOneCombo(FileWriter csv, int randWeight, int susWeight, int lmsWeight)
+    {
+        double sum = 0;//total num successes
+        for (int l = 0; l < NUM_MACHINES; l++) {//test with multiple FSMs
+            
+            StateMachineAgent gilligan = new StateMachineAgent();
+            gilligan.RANDOM_SCORE = randWeight;
+            gilligan.SUS_CONSTANT = susWeight;
+            gilligan.LMS_CONSTANT = lmsWeight;
+            
+            gilligan.exploreEnvironment();
+            
+            sum += gilligan.currentSuccesses;
+        }//for
+        double averageSuccesses = sum / NUM_MACHINES;
+
+        //write the results of this combo to the file
         try {
-            FileWriter csv = new FileWriter("C:\\Users\\26kir_000\\Desktop\\AIReport.csv");
+            csv.append(randWeight + "," + susWeight + "," + lmsWeight + "," + averageSuccesses + "\n");
+            csv.flush();
+        }
+        catch (IOException e) {
+            System.out.println("Could not create file, what a noob...");
+            System.exit(-1);
+        }
+
+
+    }//tryOneCombo
+
+	/**
+	 * tryAllCombos
+     *
+     * exhaustively tests all permutations of weights within specified ranges.
+     * 
+     * TODO: Range values are hard-coded at the moment.  
+	 */
+    public static void tryAllCombos()
+    {
+        try {
+            FileWriter csv = new FileWriter(OUTPUT_FILE);
             csv.append("Random,SUS,LMS,Average Score\n");
 
             //constants loops (trying many permutations of values)
-            for (int i = 1; i < 6; i++) {//random loop
-                gilligan.RANDOM_SCORE = i;
-                for (int j = 1; j < 50; j++) {//sus loop
-                    gilligan.SUS_CONSTANT = j;
-                    for (int k = 1; k < 50; k++) {//lms loop
-                        gilligan.LMS_CONSTANT = k;
+            for (int i = 1; i < 6; i+=1) {//random loop
+                for (int j = 1; j < 50; j+=1) {//sus loop
+                    for (int k = 1; k < 50; k+=1) {//lms loop
                         System.out.println("Testing Random Constant: " + i
                                 + " ~~~ Testing SUS Constant: " + j
                                 + " ~~~ Testing LMS Constant: " + k);
 
-                        double sum = 0;//total num successes
-                        for (int l = 0; l < 100; l++) {//number of machines
-                            gilligan = new StateMachineAgent();
-                            gilligan.exploreEnvironment();
-                            sum += gilligan.currentSuccesses;
-                        }
-                        double averageSuccesses = sum / 100;
-
-                        csv.append(i + "," + j + "," + k + "," + averageSuccesses + "\n");
+                        tryOneCombo(csv, i, j, k);
                     }//lms
-                    csv.flush();
                 }//sus
             }//random
-            csv.flush();
             csv.close();
         }
         catch (IOException e) {
             System.out.println("Could not create file, what a noob...");
             System.exit(-1);
         }
-	}
+    }//tryAllCombos
 
-	protected StateMachineEnvironment getEnv() {
-		return env;
+	/**
+	 * tryRandomCombos
+     *
+     * tests several randomly selected permutations of weights within specified ranges.
+     *
+     * TODO: Range values are hard-coded at the moment.
+     *
+     * @param numCombos  number of combinations to test
+	 */
+    public static void tryRandomCombos(int numCombos)
+    {
+        try {
+            FileWriter csv = new FileWriter(OUTPUT_FILE);
+            csv.append("Random,SUS,LMS,Average Score\n");
+
+            for(int i = 0; i < numCombos; ++i)
+            {
+                int randWeight = random.nextInt(6) + 1;
+                int susWeight = random.nextInt(50) + 1;
+                int lmsWeight = random.nextInt(50) + 1;
+
+                tryOneCombo(csv, randWeight, susWeight, lmsWeight);
+            }
+            csv.close();
+        }
+        catch (IOException e) {
+            System.out.println("Could not create file, what a noob...");
+            System.exit(-1);
+        }
+    }//tryRandomCombos
+
+    
+    
+	/**
+	 * main
+     *
+     * helper methods (above) have been defined to do various things here.
+     * Modify this method to call the one(s) you want.
+	 */
+	public static void main(String [ ] args) {
+        tryRandomCombos(500);
 	}
 
 }//class StateMachineAgent
