@@ -146,10 +146,6 @@ public class StateMachineAgent {
      * performed and not yet removed from sequencesNotPerformed. Should be
      * called after every command the agent makes
      *
-     * TODO:  Could this be more efficient by exploiting the fact that this is
-     * called at every step and thus only sequences that end in the most recent
-     * action could be removed.
-     *
      * @param numCmdsExecuted the number of cmds commited by the last try path
      */
     public void scanAndRemoveNewSequences(int numCmdsExecuted){
