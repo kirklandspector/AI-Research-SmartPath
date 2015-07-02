@@ -27,16 +27,16 @@ public class StateMachineEnvironment {
 	// Instance variables
 	public static int NUM_STATES = 6;
 	public static int GOAL_STATE = NUM_STATES - 1;
-	public static int ALPHABET_SIZE = 4;  //for now, this can't exceed 26
+	public static int ALPHABET_SIZE = 4;  //this must be in the range [2,26]
 
 	 //These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
 	private static final int IS_GOAL = 1;
 
 
-	private int[][] transition;
+	private int[][] transition;  //transition table
 	private char[] alphabet;
-	private String[] paths;
+	private String[] paths;  //the shortest path from each state to goal
 	public int currentState;
 
     //this will be useful
@@ -209,7 +209,7 @@ public class StateMachineEnvironment {
         }
         System.out.println();
     }
-	
+
 	 /**
      * A method which prints a .dot file (Graphviz) for visualizing a state machine
      */
@@ -403,6 +403,133 @@ public class StateMachineEnvironment {
 			System.out.println(path);
 		}
 	}
+	
+	/**
+	 * Calculates which state the agent would be in if it followed a given path
+	 * from a given starting state.
+     *
+     * CAVEAT:  caller is responsible for providing a valid path
+     *
+     * @param begin state the agent starts in
+     * @param path  path the agent follows
+     *
+     * @return the id of the result state or -1 for invalid path
+	 */
+	public int pathResult(int begin, String path) {
+        if (path == null) return -1;
+
+        //Step through each step of the path
+        int currState = begin;
+        for(int i = 0; i < path.length(); ++i) {
+            char action = path.charAt(i);
+            currState = transition[currState][findAlphabetIndex(action)];
+            if (currState == -1) return -1;
+        }//for
+
+        return currState;
+	}//pathResult
+
+	 /**
+      * A recursive helper method for {@link #shortPathToGoal}
+      *
+      * @param soFar       the path so far (the agent will find a shortest path
+      *                    from this point)
+      * @param currStates  Each entry in this array specifies what state I'd be
+      *                    in if I'd followed the given "soFar" path from the state
+      *                    corresponding to the array index
+      *
+      * @return the shortest path from the given "so far" point
+      */
+    private String spHelper(String soFar, int[] currStates) {
+
+        //Each entry in this array specifies shortest path to the goal from the
+        //corresponding position in currStates
+        String[] currPaths = new String[NUM_STATES];
+        for(int i = 0; i < NUM_STATES; ++i) {
+            currPaths[i] = this.paths[currStates[i]];
+        }//for
+
+        //We can't explore all possible paths (NP-hard) so examine the shortest
+        //path from each state and select the one(s) that also reach the goal
+        //for the most other states.   For example, the shortest path from S4 to
+        //the goal might be "bcdd".  By following "bcdd" from S7 and S11, you
+        //will also reach the goal.
+        int shortLen = NUM_STATES; //effective infinity
+        ArrayList<String> shortest = new ArrayList<String>();
+        int bestSolveTotal = 0;
+        for(int i = 0; i < NUM_STATES; ++i) {
+            if (currPaths[i].length() == 0) continue;
+
+            //find out how many states this path will reach a goal for
+            int solveTotal = 0;
+            for(int j = 0; j < NUM_STATES; ++j) {
+                if (currPaths[j].length() == 0) continue;
+
+                if (pathResult(currStates[j], currPaths[i]) == GOAL_STATE) {
+                    solveTotal++;
+                }
+            }
+
+            //If we find a new best, reset the list
+            if (solveTotal > bestSolveTotal) {
+                shortest.clear();
+                bestSolveTotal = solveTotal;
+            }
+
+            //Add the new best to the list
+            if ( (solveTotal >=  bestSolveTotal)
+                 && (! shortest.contains(currPaths[i])) ) {
+                shortest.add(currPaths[i]);
+            }
+        }//for
+
+        //If all paths are zero length, then we're done
+        if (shortest.isEmpty()) return soFar;
+
+        //Make a recursive call for each shortest path to find the shortest
+        //final path
+        String shortestFinal = null;
+        for(String path : shortest) {
+            //Create a copy of currStates that reflects the application of this
+            //shortest path
+            int[] newCurrStates = new int[NUM_STATES];
+            for(int i = 0; i < NUM_STATES; ++i) {
+                newCurrStates[i] = currStates[i];
+                if (newCurrStates[i] != GOAL_STATE) {
+                    newCurrStates[i] = pathResult(newCurrStates[i], path);
+                }
+            }
+
+            //recurse
+            String cand = spHelper(soFar + path, newCurrStates);
+            if ( (shortestFinal == null) || (shortestFinal.length() < cand.length()) ) {
+                shortestFinal = cand;
+            }
+        }//for
+                
+        return shortestFinal;
+        
+    }//spHelper
+    
+    /**
+     * Calculates a short path to the goal if the agent has a perfect model of
+     * the environment but does not know what state it has started in.
+     *
+     * Note: Finding the actual shortest path is likely NP-hard and will take
+     * far too long to calculate for anything but small FSMs.  This method uses
+     * a greedy approach that will yield the shortest path much of the time for
+     * small FSMs.
+     */
+    public String shortPathToGoal() {
+        //
+        int[] currStates = new int[NUM_STATES];
+        for(int i = 0; i < NUM_STATES; ++i) {
+            currStates[i] = i;
+        }
+
+        return spHelper("", currStates);
+    }//shortPathToGoal
+    
 	
 	public String[] getPaths() {
 		return paths;
