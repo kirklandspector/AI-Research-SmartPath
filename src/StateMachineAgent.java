@@ -729,6 +729,28 @@ public class StateMachineAgent {
         }
     }//tryRandomCombos
 
+	/**
+	 * tryAvgWithShortPath
+     *
+     * calculates the average near-optimal number of steps to goal given a model
+     * of FSM but no knowledge of the environment
+     *
+     * @param numTimes  number of FSMs to use to calculate the average
+	 */
+    public static int tryAvgWithShortPath(int numTimes)
+    {
+        int sumOfAvgSteps = 0;
+        for(int i = 0; i < numTimes; ++i)
+        {
+            StateMachineEnvironment env = new StateMachineEnvironment();
+            String path = env.shortPathToGoal();
+            sumOfAvgSteps += env.avgStepsToGoalWithPath(path);
+        }
+
+        return sumOfAvgSteps / numTimes;
+        
+    }//tryAvgWithShortPath
+
     
     
 	/**
@@ -738,7 +760,10 @@ public class StateMachineAgent {
      * Modify this method to call the one(s) you want.
 	 */
 	public static void main(String [ ] args) {
-        tryRandomCombos(500);
+
+        System.out.println(tryAvgWithShortPath(100));
+
+        
 	}
 
 }//class StateMachineAgent
