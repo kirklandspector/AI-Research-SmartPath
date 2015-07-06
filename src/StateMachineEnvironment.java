@@ -25,9 +25,9 @@ import java.util.Random;
 public class StateMachineEnvironment {
 	
 	// Instance variables
-	public static int NUM_STATES = 6;
+	public static int NUM_STATES = 50;
 	public static int GOAL_STATE = NUM_STATES - 1;
-	public static int ALPHABET_SIZE = 4;  //this must be in the range [2,26]
+	public static int ALPHABET_SIZE = 3;  //this must be in the range [2,26]
 
 	 //These are used as indexes into the the sensor array
 	private static final int IS_NEW_STATE = 0;
@@ -521,7 +521,6 @@ public class StateMachineEnvironment {
      * small FSMs.
      */
     public String shortPathToGoal() {
-        //
         int[] currStates = new int[NUM_STATES];
         for(int i = 0; i < NUM_STATES; ++i) {
             currStates[i] = i;
@@ -529,6 +528,52 @@ public class StateMachineEnvironment {
 
         return spHelper("", currStates);
     }//shortPathToGoal
+    
+    /**
+     * Calculates how many steps the agent will take to reach the goal from any
+     * state in the FSM given a path that will reach the goal from any state in
+     * the FSM (@see #shortPathToGoal)
+     *
+     * CAVEAT:  User is responsible for providing a valid path
+     *
+     * @param path  the path to evaluate
+     *
+     * @return the average steps or -1 if path doesn't reach goal from all states
+     *
+     */
+    public int avgStepsToGoalWithPath(String path) {
+        int sum = 0; //sum of steps to each goal
+        int goalCount = 0;  //how many states we've reached goal from
+
+        //what state I'd be in if I started at each state and followed the path
+        //so far (this has the same use as in shortPathToGoal)
+        int[] currStates = new int[NUM_STATES];
+        for(int i = 0; i < NUM_STATES; ++i) {
+            currStates[i] = i;
+        }
+
+        //Iterate over each action in the path
+        for(int c = 0; c < path.length(); ++c) {
+            char action = path.charAt(c);
+
+            //Take the action in each curr state that hasn't reached the goal
+            //yet and see if agent reaches the goal
+            for(int i = 0; i < NUM_STATES; ++i) {
+                if (currStates[i] != GOAL_STATE) {
+                    currStates[i] = transition[currStates[i]][findAlphabetIndex(action)]; 
+                    if (currStates[i] == GOAL_STATE) {
+                        sum += i;
+                        goalCount++;
+                    }
+                }//if
+            }//for
+        }//for
+
+        //Check for invalid path
+        if (goalCount != NUM_STATES - 1) return -1;
+
+        return sum / goalCount;
+    }//avgStepsToGoalWithPath
     
 	
 	public String[] getPaths() {
