@@ -1,4 +1,3 @@
-
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -25,7 +24,7 @@ import java.util.Random;
 public class StateMachineEnvironment {
 	
 	// Instance variables
-	public static int NUM_STATES = 50;
+	public static int NUM_STATES = 5;
 	public static int GOAL_STATE = NUM_STATES - 1;
 	public static int ALPHABET_SIZE = 3;  //this must be in the range [2,26]
 
@@ -387,20 +386,28 @@ public class StateMachineEnvironment {
 				return;
 			}
 		}
-
-        	//DEBUG
-		// if (debug) {
-		// 	printPaths();
-		// }
 	}
-	
+
+    /**
+     * prints the average length of all shortest paths (used for data baseline)
+     */
+    public void printAvgPathLen() {
+        int sum = 0;
+        for(int i = 0; i < NUM_STATES-1; ++i)
+        {
+            sum += paths[i].length();
+
+        }
+        System.out.println("average shortest path len: " + sum / (NUM_STATES - 1));
+    }
+    
 	/**
 	 * A helper method that prints the shortest path from each state to the goal.
 	 */
 	public void printPaths() {
-		System.out.println("Paths: ");
-		for (String path : paths) {
-			System.out.println(path);
+		System.out.println("#####Paths: ");
+		for (int i = 0; i < paths.length; ++i) {
+			System.out.println("#S" + i + ": " + paths[i]);
 		}
 	}
 	
@@ -528,6 +535,8 @@ public class StateMachineEnvironment {
 
         return spHelper("", currStates);
     }//shortPathToGoal
+
+
     
     /**
      * Calculates how many steps the agent will take to reach the goal from any
