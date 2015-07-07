@@ -1,4 +1,3 @@
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,8 +25,11 @@ public class StateMachineAgent {
 	public static final int TRANSITION_ONLY = 1;
 	public static final int GOAL = 2;
 
-    //Number of state machines to test a given constant combo with
+    /** Number of state machines to test a given constant combo with */
     public static final int NUM_MACHINES = 100;
+
+    /** Number of episodes per run */
+    public static final int MAX_EPISODES = 5000;
 
     //filename to store experimental results
     public static final String OUTPUT_FILE = "AIReport.csv";
@@ -105,7 +107,7 @@ public class StateMachineAgent {
      * environment giving him full sentient capabilities...
      */
     public void exploreEnvironment() {
-        while (episodicMemory.size() < 1000) { //perform 1000 cmds
+        while (episodicMemory.size() < MAX_EPISODES) { 
             //Find sus and lms scores
             determineSusScore();
             String currentLms = determineLmsScore();
@@ -625,6 +627,61 @@ public class StateMachineAgent {
 		return -1;
 	}
 
+	/**
+	 * recordLearningCurve
+	 * 
+	 * examine's the agents memory and prints out how many steps the agent took
+	 * to reach the goal each time
+	 * 
+     * @param csv         an open file to write to
+	 */
+	private void recordLearningCurve(FileWriter csv) {
+        try {
+            csv.append(episodicMemory.size() + ",");
+            csv.flush();
+            int prevGoalPoint = 0; //which episode I last reached the goal at
+            for(int i = 0; i < episodicMemory.size(); ++i) {
+                Episode ep = episodicMemory.get(i);
+                if (ep.sensorValue == GOAL) {
+                    csv.append(i - prevGoalPoint + ",");
+                    csv.flush();
+                    prevGoalPoint = i;
+                }//if
+            }//for
+
+            csv.append("\n");
+            csv.flush();
+        }
+        catch (IOException e) {
+            System.out.println("recordLearningCurve: Could not write to given csv file.");
+            System.exit(-1);
+        }
+                
+	}//recordLearningCurve
+
+	/**
+	 * tryGenLearningCurves
+     *
+     * creates a .csv file containing learning curves of several successive agents
+	 */
+    public static void tryGenLearningCurves()
+    {
+        try {
+
+            FileWriter csv = new FileWriter(OUTPUT_FILE);
+            for(int i = 0; i < NUM_MACHINES; ++i) {
+                StateMachineAgent gilligan = new StateMachineAgent();
+                gilligan.exploreEnvironment();
+                gilligan.recordLearningCurve(csv);
+            }
+            csv.close();
+        }
+        catch (IOException e) {
+            System.out.println("tryAllCombos: Could not create file, what a noob...");
+            System.exit(-1);
+        }
+    }//tryGenLearningCurves
+
     /**
      * tryOneCombo
      *
@@ -654,7 +711,7 @@ public class StateMachineAgent {
 
         //write the results of this combo to the file
         try {
-            csv.append(randWeight + "," + susWeight + "," + lmsWeight + "," + averageSuccesses + "\n");
+            System.out.println("tryOneCombo: Could not write to given csv file.");
             csv.flush();
         }
         catch (IOException e) {
@@ -693,7 +750,7 @@ public class StateMachineAgent {
             csv.close();
         }
         catch (IOException e) {
-            System.out.println("Could not create file, what a noob...");
+            System.out.println("tryAllCombos: Could not create file, what a noob...");
             System.exit(-1);
         }
     }//tryAllCombos
@@ -761,8 +818,12 @@ public class StateMachineAgent {
 	 */
 	public static void main(String [ ] args) {
 
-        System.out.println(tryAvgWithShortPath(100));
-
+        StateMachineEnvironment env = new StateMachineEnvironment();
+        String path = env.shortPathToGoal();
+        env.printStateMachineGraph();
+        System.out.println("#short path: " + path);
+        env.printPaths();
+        
         
 	}
 
