@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.TreeSet;
 
 /**
  * <!-- class StateMachineEnvironment -->
@@ -24,7 +25,7 @@ import java.util.Random;
 public class StateMachineEnvironment {
 	
 	// Instance variables
-	public static int NUM_STATES = 5;
+	public static int NUM_STATES = 50;
 	public static int GOAL_STATE = NUM_STATES - 1;
 	public static int ALPHABET_SIZE = 3;  //this must be in the range [2,26]
 
@@ -436,107 +437,116 @@ public class StateMachineEnvironment {
         return currState;
 	}//pathResult
 
-	 /**
-      * A recursive helper method for {@link #shortPathToGoal}
-      *
-      * @param soFar       the path so far (the agent will find a shortest path
-      *                    from this point)
-      * @param currStates  Each entry in this array specifies what state I'd be
-      *                    in if I'd followed the given "soFar" path from the state
-      *                    corresponding to the array index
-      *
-      * @return the shortest path from the given "so far" point
-      */
-    private String spHelper(String soFar, int[] currStates) {
-
-        //Each entry in this array specifies shortest path to the goal from the
-        //corresponding position in currStates
-        String[] currPaths = new String[NUM_STATES];
-        for(int i = 0; i < NUM_STATES; ++i) {
-            currPaths[i] = this.paths[currStates[i]];
-        }//for
-
-        //We can't explore all possible paths (NP-hard) so examine the shortest
-        //path from each state and select the one(s) that also reach the goal
-        //for the most other states.   For example, the shortest path from S4 to
-        //the goal might be "bcdd".  By following "bcdd" from S7 and S11, you
-        //will also reach the goal.
-        int shortLen = NUM_STATES; //effective infinity
-        ArrayList<String> shortest = new ArrayList<String>();
-        int bestSolveTotal = 0;
-        for(int i = 0; i < NUM_STATES; ++i) {
-            if (currPaths[i].length() == 0) continue;
-
-            //find out how many states this path will reach a goal for
-            int solveTotal = 0;
-            for(int j = 0; j < NUM_STATES; ++j) {
-                if (currPaths[j].length() == 0) continue;
-
-                if (pathResult(currStates[j], currPaths[i]) == GOAL_STATE) {
-                    solveTotal++;
-                }
-            }
-
-            //If we find a new best, reset the list
-            if (solveTotal > bestSolveTotal) {
-                shortest.clear();
-                bestSolveTotal = solveTotal;
-            }
-
-            //Add the new best to the list
-            if ( (solveTotal >=  bestSolveTotal)
-                 && (! shortest.contains(currPaths[i])) ) {
-                shortest.add(currPaths[i]);
-            }
-        }//for
-
-        //If all paths are zero length, then we're done
-        if (shortest.isEmpty()) return soFar;
-
-        //Make a recursive call for each shortest path to find the shortest
-        //final path
-        String shortestFinal = null;
-        for(String path : shortest) {
-            //Create a copy of currStates that reflects the application of this
-            //shortest path
-            int[] newCurrStates = new int[NUM_STATES];
-            for(int i = 0; i < NUM_STATES; ++i) {
-                newCurrStates[i] = currStates[i];
-                if (newCurrStates[i] != GOAL_STATE) {
-                    newCurrStates[i] = pathResult(newCurrStates[i], path);
-                }
-            }
-
-            //recurse
-            String cand = spHelper(soFar + path, newCurrStates);
-            if ( (shortestFinal == null) || (shortestFinal.length() < cand.length()) ) {
-                shortestFinal = cand;
-            }
-        }//for
-                
-        return shortestFinal;
-        
-    }//spHelper
-    
     /**
-     * Calculates a short path to the goal if the agent has a perfect model of
-     * the environment but does not know what state it has started in.
+     * class PathNode
      *
-     * Note: Finding the actual shortest path is likely NP-hard and will take
-     * far too long to calculate for anything but small FSMs.  This method uses
-     * a greedy approach that will yield the shortest path much of the time for
-     * small FSMs.
+     * used to contain info for the short path search.  Each node contains a
+     * path and the current position the agent would be in having followed that
+     * path from each state as well as 'h' and 'g' values to support A*
+     * searching
      */
-    public String shortPathToGoal() {
-        int[] currStates = new int[NUM_STATES];
-        for(int i = 0; i < NUM_STATES; ++i) {
-            currStates[i] = i;
+    public class PathNode implements Comparable<PathNode> {
+        public String path = "";
+        public int[] currStates = new int[NUM_STATES];
+        public int g = 0;
+        public int h;
+
+        /** default ctor */
+        public PathNode() {
+            for(int i = 0; i < NUM_STATES; ++i) {
+                currStates[i] = i;
+            }
+            updateH();
+        }
+        
+        /** copy ctor */
+        public PathNode(PathNode parent) {
+            path = parent.path;
+            for(int i = 0; i < NUM_STATES; ++i) {
+                currStates[i] = parent.currStates[i];
+            }
+            g = parent.g;
+            h = parent.h;
         }
 
-        return spHelper("", currStates);
-    }//shortPathToGoal
+        /** calculate the 'h' (heuristic) value for A* search.  In this case
+         * it's the length of the longest remaining shortest path */
+        public void updateH() {
+            h = 0;
+            for(int i = 0; i < NUM_STATES; ++i) {
+                h += paths[currStates[i]].length();
+            }
+        }//updateH
 
+        /** the 'f' value for A* search */
+        public int getF() { return h + g; }
 
+        /** this method is for the Comparable interface so that we can use this
+         * node in a sorted collection */
+        public int compareTo(PathNode other) {
+            return getF() - other.getF();
+        }
+
+        /** appends a new action to the path and adjusts the states accordingly */
+        public void advance(char action) {
+            for(int i = 0; i < NUM_STATES; ++i) {
+                if (currStates[i] != GOAL_STATE) {
+                    currStates[i] = pathResult(currStates[i], "" + action);
+                }
+            }
+            path = path + action;
+            g++;
+            updateH();
+        }//advance
+
+        /** @return true if the agent would reach the goal from all states with
+          * this node's path
+          */
+        public boolean allGoal() {
+            for(int i = 0; i < NUM_STATES; ++i) {
+                if (currStates[i] != GOAL_STATE) return false;
+            }
+
+            return true;
+        }//allGoal
+        
+    }//PathNode
+
+    /**
+     * Calculates the shortest path to the goal if the agent has a perfect model
+     * of the environment but does not know what state it has started in.  This
+     * method uses A* search to reduce resource usage.
+     *
+     * CAVEAT: This method is solving an NP-hard probelm and can take a really
+     * long time to execute on larger FSMs.
+     
+     */
+    public String shortestBlindPathToGoal() {
+        //An ordered set containing this initial node
+        PathNode pn = new PathNode();
+        TreeSet<PathNode> queue = new TreeSet<PathNode>();
+        queue.add(pn);
+
+        //Main search loop
+        while(! queue.isEmpty()) {
+            PathNode parent = queue.first();
+            queue.remove(parent);
+            for(char c : alphabet) {
+
+                //Create a child node with this action
+                PathNode node = new PathNode(parent);
+                node.advance(c);
+
+                //Did we find the shortest path?
+                if (node.allGoal()) return node.path;
+
+                //Use this node as parent for future searching
+                queue.add(node);
+            }//for
+        }//while
+        
+        return "OOPS!"; //should not be reached
+    }//shortestBlindPathToGoal
     
     /**
      * Calculates how many steps the agent will take to reach the goal from any

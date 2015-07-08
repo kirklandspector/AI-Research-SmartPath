@@ -800,7 +800,7 @@ public class StateMachineAgent {
         for(int i = 0; i < numTimes; ++i)
         {
             StateMachineEnvironment env = new StateMachineEnvironment();
-            String path = env.shortPathToGoal();
+            String path = env.shortestBlindPathToGoal();
             sumOfAvgSteps += env.avgStepsToGoalWithPath(path);
         }
 
@@ -818,13 +818,7 @@ public class StateMachineAgent {
 	 */
 	public static void main(String [ ] args) {
 
-        StateMachineEnvironment env = new StateMachineEnvironment();
-        String path = env.shortPathToGoal();
-        env.printStateMachineGraph();
-        System.out.println("#short path: " + path);
-        env.printPaths();
-        
-        
+        System.out.println(tryAvgWithShortPath(100));
 	}
 
 }//class StateMachineAgent
