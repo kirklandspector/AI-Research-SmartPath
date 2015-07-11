@@ -581,7 +581,7 @@ public class StateMachineEnvironment {
                 if (currStates[i] != GOAL_STATE) {
                     currStates[i] = transition[currStates[i]][findAlphabetIndex(action)]; 
                     if (currStates[i] == GOAL_STATE) {
-                        sum += i;
+                        sum += c;
                         goalCount++;
                     }
                 }//if
