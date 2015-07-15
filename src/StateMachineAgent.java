@@ -8,17 +8,17 @@ import java.util.Random;
 public class StateMachineAgent {
 
 	// Instance variables
-	private StateMachineEnvironment env;
-	private char[] alphabet;
-	private ArrayList<Episode> episodicMemory;
-    private int currentSuccesses = 0;
+	protected StateMachineEnvironment env;
+	protected char[] alphabet;
+	protected ArrayList<Episode> episodicMemory;
+    protected int currentSuccesses = 0;
 
     //This will be useful
     public static Random random = new Random();
 
 	//These are used as indexes into the the sensor array
-	private static final int IS_NEW_STATE = 0;
-	private static final int IS_GOAL = 1;
+	public static final int IS_NEW_STATE = 0;
+	public static final int IS_GOAL = 1;
 
 	//Sensor values
 	public static final int NO_TRANSITION = 0;
@@ -72,7 +72,9 @@ public class StateMachineAgent {
 	boolean useDefinedPath = false;
 
 	/**
-	 * The constructor for the agent simply initializes it's instance variables
+	 * In addition to initializing instance variables, the ctor generates all
+	 * possible SUS actions (up to a maximum length) for use during execution. 
+	 * 
 	 */
 	public StateMachineAgent() {
         env = new StateMachineEnvironment();
@@ -295,7 +297,7 @@ public class StateMachineAgent {
      * @return The ending index of the longest substring matching the final string of actions
      *         the agent has taken and the length of the matched string
      */
-    private int[] maxMatchedString() {
+    protected int[] maxMatchedString() {
         int lastGoalIndex = findLastGoal(episodicMemory.size());
         int[] scoreInfo = {0,0};//var to be returned
 
@@ -357,7 +359,7 @@ public class StateMachineAgent {
      *
      * @return steps the string to exec to "reach" goal
      */
-    private String stepsToGoal(int idx) {
+    protected String stepsToGoal(int idx) {
         //loop to next goal appending all chars
         String steps = "";
         if (idx ==0)//no mem to evaluate
@@ -375,12 +377,14 @@ public class StateMachineAgent {
     /**
      * matchedMemoryStringLength
      *
-     * Starts from a given index and the end of the Agent's episodic memory and moves backwards, returning
-     * the number of consecutive matching characters
+     * Starts from a given index and the end of the Agent's episodic memory and
+     * moves backwards, comparing each episode to the present episode and it
+     * prededessors until the corresponding episdoes no longer match.
+     *
      * @param endOfStringIndex The index from which to start the backwards search
      * @return the number of consecutive matching characters
      */
-    private int matchedMemoryStringLength(int endOfStringIndex) {
+    protected int matchedMemoryStringLength(int endOfStringIndex) {
         int length = 0;
         int indexOfMatchingAction = episodicMemory.size() - 1;
         boolean match;
@@ -415,7 +419,7 @@ public class StateMachineAgent {
      * @param toStart The index from which to start the backwards search
      * @return The index of the previous goal
      */
-    private int findLastGoal(int toStart) {
+    protected int findLastGoal(int toStart) {
         for (int i = toStart - 1; i > 0; i --) {
             if (episodicMemory.get(i).sensorValue == GOAL) {
                 return i;
@@ -526,9 +530,9 @@ public class StateMachineAgent {
 	/**
      * generateSemiRandomAction
      *
-	 * Generates a semi random action for the Agent to take
-     * There is a a 10% forgiveness to make the same move again since
-     * prior research has shown duplicate commands are rarely successful
+	 * Generates a semi random action for the Agent to take There is a
+     * disposition against making the same move again since prior research has
+     * shown duplicate commands are rarely successful
 	 * 
 	 * @return A random action for the Agent to take
 	 */
@@ -559,7 +563,7 @@ public class StateMachineAgent {
      * @param sensors The agent's sensor data
      * @return the integer encoding of that sensor data
      */
-    private int encodeSensors(boolean[] sensors) {
+    protected int encodeSensors(boolean[] sensors) {
         int encodedSensorResult;
 
         if (sensors[IS_GOAL]) {
@@ -578,26 +582,11 @@ public class StateMachineAgent {
     }
 
 	/**
-	 * Uses testPath arraylist to start agent on a specific path for testing purposes
-	 *
-	 * @return next char in the testPath
-	 */
-	private char testDefinedPath() {
-		//precaution to never send null char
-		if (testPath.size() != 0) return testPath.remove(0);
-		//if that wasn't hit something went wrong continue with a random action and alert user
-		else {
-			System.out.println("WARNING: your test path is out of commands and hasn't reached the goal, executing random action");
-			return generateSemiRandomAction();
-		}
-	}
-
-	/**
 	 * Returns the index of the given character in the alphabet array
 	 * @param toCheck the character to find the index of
 	 * @return the index of toCheck
 	 */
-	private int indexOfCharacter(char toCheck) {
+	protected int indexOfCharacter(char toCheck) {
 		for (int i = 0; i < alphabet.length; i++) {
 			if (alphabet[i] == toCheck) {
 				return i;
@@ -616,7 +605,7 @@ public class StateMachineAgent {
 	 * @return
 	 * 		The index of the given letter (or -1 if the letter was not found)
 	 */
-	private int findAlphabetIndex(char letter) {
+	protected int findAlphabetIndex(char letter) {
 		// Iterate the through the alphabet to find the index of letter
 		for(int i = 0; i < alphabet.length; i++){
 			if(alphabet[i] == letter)
@@ -635,7 +624,7 @@ public class StateMachineAgent {
 	 * 
      * @param csv         an open file to write to
 	 */
-	private void recordLearningCurve(FileWriter csv) {
+	protected void recordLearningCurve(FileWriter csv) {
         try {
             csv.append(episodicMemory.size() + ",");
             csv.flush();
