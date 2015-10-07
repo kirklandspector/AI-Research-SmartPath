@@ -4,20 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
-/**
- * Created by sarameisburger on 10/7/15.
- */
-public class NewAgentimport java.io.FileWriter;
-        import java.io.IOException;
-        import java.util.ArrayList;
-        import java.util.Arrays;
-        import java.util.Random;
-        import java.util.Collections;
-        import java.util.Scanner;
-        import java.io.File;
-        import java.io.FileNotFoundException;
-        import java.io.PrintWriter;
-        import java.io.FileOutputStream;
+//Hello!!!
 
 /**
  * class NewAgent
