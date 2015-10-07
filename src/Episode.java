@@ -8,6 +8,8 @@ public class Episode {
 	public char command;     //what the agent did
 	public int sensorValue;  //what the agent sensed
 
+	//this is a test comment blah blah
+
 	public Episode(char cmd, int sensor) {
 		command = cmd;
 		sensorValue = sensor;
