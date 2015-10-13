@@ -3,8 +3,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.*;
 
-//Hello!!!
+
 
 /**
  * class NewAgent
@@ -28,12 +29,19 @@ public class NewAgent extends StateMachineAgent
     //protected static ArrayList<Episode> episodicMemory;
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted
+    protected static int NUM_TOP_ACTIONS = 8;
     protected static int COMPARE_SIZE = 8;
     public static final String OUTPUT_FILE2 = "sequences.csv";
     Episode tempEpisode;
     //constants for scores
     private static int COUNTING_CONSTANT = 10;
     private static int ALIGNED_CONSTANT= 10;
+    //private static int susScore = 0;
+    private Recommendation[] topNextActions;
+
+    //array to hold the number of recommendations for each char action based on the info from
+    //topNextActions
+    private int[] frequencyNextActions;
 
     /**
      *
@@ -51,8 +59,26 @@ public class NewAgent extends StateMachineAgent
         //env = new StateMachineEnvironment();
         //alphabet = env.getAlphabet();
         //System.out.print("score");
+
         super();
+
+        topNextActions = new Recommendation[NUM_TOP_ACTIONS+1];
+        frequencyNextActions = new int[env.ALPHABET_SIZE];
+
+        //fill topNextActions with dummy Recommendations
+        for (int i = 0; i < topNextActions.length; i++)
+        {
+            topNextActions[i] = new Recommendation(0.0, 50, alphabet[random.nextInt(alphabet.length)]);
+        }
+
+        //fill frequencyNextActions with 0s
+        for (int i = 0; i < frequencyNextActions.length; i++)
+        {
+            frequencyNextActions[i] = 0;
+        }
     }
+
+
 
     public void exploreEnvironment(){
 
@@ -86,15 +112,65 @@ public class NewAgent extends StateMachineAgent
                 double alignedMatches = getAlignedMatchesScore(originalSequence, foundSequence);
 
                 int tempQualityScore = (int)((COUNTING_CONSTANT)*countingScore + (ALIGNED_CONSTANT)*alignedMatches);
-                if(tempQualityScore > maxQualityScore){
-                    maxQualityScore = tempQualityScore;
-                    recommendedCharacter = episodicMemory.get(w+1).command;
-                }
 
+                determineSusScore();
+
+                //make a Recommendation object based on containing the score, steps to Goal, and character command
+                //place in the last spot in the topNextActions array
+                topNextActions[NUM_TOP_ACTIONS] = new Recommendation(tempQualityScore, 0, episodicMemory.get(w+1).command);
+                //if(tempQualityScore > maxQualityScore){
+                  //  maxQualityScore = tempQualityScore;
+                    //recommendedCharacter = episodicMemory.get(w+1).command;
+               // }
+
+                //sort the array (array will be sorted from ascending to descending)
+                Arrays.sort(topNextActions);
+                //the last spot holds the Recommendation object with the lowest score, set it to null
+                topNextActions[NUM_TOP_ACTIONS] = null;
             }
 
-            atGoal = tryPath(stringToPath(Character.toString(recommendedCharacter)));
 
+            double sumOfTopEightScores  = 0.0;
+            //loop through topNextActions and record the frequencies of the different
+            //recommended action chars in frequencyNextActions
+            for (int i = 0; i < topNextActions.length - 1; i++)
+            {
+                //get the Recommendation object's recommended action
+                char action = topNextActions[i].recommendedAction;
+
+                //add the score of the recommendation object to sumOfTopEightScores
+                sumOfTopEightScores = topNextActions[i].score;
+
+                //get the index of that action in the alphabet array
+                int indexOfAction = findAlphabetIndex(action);
+
+                //increment the value in frequencyNextActions[indexOfAction]
+                frequencyNextActions[indexOfAction]++;
+            }
+
+            double avgTopEightScores = sumOfTopEightScores/NUM_TOP_ACTIONS;
+
+            //loop through frequencyNextActions and determine the best next move
+            int indexBestMove = 0;
+            int highestFreq = 0;
+
+            for(int j = 0; j < frequencyNextActions.length; j++)
+            {
+                if(frequencyNextActions[j]>highestFreq)
+                {
+                    indexBestMove = j;
+                    highestFreq = frequencyNextActions[j];
+                }
+            }
+
+            if (susScore > avgTopEightScores){
+                String pathToAttempt = getSus();
+                Path finalPath = stringToPath(pathToAttempt);
+                tryPath(finalPath);
+            }
+            else {
+                atGoal = tryPath(stringToPath(Character.toString(alphabet[indexBestMove])));
+            }
 
         }
 
@@ -295,16 +371,17 @@ public class NewAgent extends StateMachineAgent
         for(int i=1; i<=originalString.length(); i++){ // i determines length of string
             for(int j=0; j<=originalString.length()-i; j++){ // j determines where we start (indice) in string
                 originalSubsequences.add(originalString.substring(j,j+i));
+                foundSubsequences.add(foundString.substring(i,j+i));
                 //System.out.println("original subsequences: "+ originalString.substring(j,j+i));
             }
         }
-        //get arraylist of subsequences for found
-        for(int g=1; g<=foundString.length(); g++){
-            for(int f=0; f<=foundString.length()-g; f++){
-                foundSubsequences.add(foundString.substring(f,f+g));
-                //System.out.println("found subsequences: "+ foundString.substring(f,f+g));
-            }
-        }
+//        //get arraylist of subsequences for found
+//        for(int g=1; g<=foundString.length(); g++){
+//            for(int f=0; f<=foundString.length()-g; f++){
+//                foundSubsequences.add(foundString.substring(f,f+g));
+//                //System.out.println("found subsequences: "+ foundString.substring(f,f+g));
+//            }
+//        }
         //for each subsequence in original, compare to see if it is in found list of subsequences
         for(int p=0; p<originalSubsequences.size(); p++){
             for(int q=0; q<foundSubsequences.size(); q++){
@@ -353,16 +430,21 @@ public class NewAgent extends StateMachineAgent
         while (lastGoalIndex == -1) {
             //System.out.println("we are checking conditions");
             //since qualityScore has been init to 0, the ending score will be poor
-            char randomChar  = generateSemiRandomAction();
+//            char randomChar  = generateSemiRandomAction();
+//
+            String pathToAttempt = getSus();
+            Path aPath = stringToPath(pathToAttempt);
+            tryPath(aPath);
 
-            //tryPath(stringToPath(Character.toString(randomChar)));
-            //atGoal = episodicMemory.get(episodicMemory.size()-1).sensorValue;
-            atGoal = tryPath(stringToPath(Character.toString(randomChar)));
-            if(atGoal == true)
-            {
-                lastGoalIndex = findLastGoal(episodicMemory.size());
-                break;
-            }
+            lastGoalIndex = findLastGoal(episodicMemory.size()-1);
+//            //tryPath(stringToPath(Character.toString(randomChar)));
+//            //atGoal = episodicMemory.get(episodicMemory.size()-1).sensorValue;
+//            atGoal = tryPath(stringToPath(Character.toString(randomChar)));
+//            if(atGoal == true)
+//            {
+//                lastGoalIndex = findLastGoal(episodicMemory.size());
+//                break;
+//            }
 
         }
 
@@ -370,10 +452,14 @@ public class NewAgent extends StateMachineAgent
 //If we've just reached the goal in the last 8 characters, then generate random steps until long enough
         while (lastGoalIndex > episodicMemory.size() - COMPARE_SIZE || episodicMemory.size() < COMPARE_SIZE || lastGoalIndex < COMPARE_SIZE){
             //System.out.println("In the second while loop");
-            char randomAction = generateSemiRandomAction();
-            tryPath(stringToPath(Character.toString(randomAction)));
-            lastGoalIndex = findLastGoal(episodicMemory.size()-1);
+//            char randomAction = generateSemiRandomAction();
+//            tryPath(stringToPath(Character.toString(randomAction)));
+//            lastGoalIndex = findLastGoal(episodicMemory.size()-1);
+            String pathToAttempt = getSus();
+            Path finalPath = stringToPath(pathToAttempt);
+            tryPath(finalPath);
 
+            lastGoalIndex = findLastGoal(episodicMemory.size()-1);
         }
 
         return lastGoalIndex;
@@ -418,7 +504,7 @@ public class NewAgent extends StateMachineAgent
 
             FileWriter csv = new FileWriter(OUTPUT_FILE);
             for(int i = 0; i < NUM_MACHINES; ++i) {
-                //System.out.println("making a new agent");
+                System.out.println("machine number: " + (i+1));
                 NewAgent gilligan = new NewAgent();
                 gilligan.exploreEnvironment();
                 gilligan.recordLearningCurve(csv);

@@ -22,14 +22,18 @@ public class StateMachineAgent {
 
 	//Sensor values
 	public static final int NO_TRANSITION = 0;
-	public static final int TRANSITION_ONLY = 1;
-	public static final int GOAL = 2;
+	//public static final int TRANSITION_ONLY = 1;
+	//public static final int GOAL = 2;
+
+    //attempting to fix issue in NewAgent where GOAL is assumed to be 1
+    public static final int TRANSITION_ONLY = 2;
+    public static final int GOAL = 1;
 
     /** Number of state machines to test a given constant combo with */
-    public static final int NUM_MACHINES = 100;
+    public static final int NUM_MACHINES = 50;
 
     /** Number of episodes per run */
-    public static final int MAX_EPISODES = 5000;
+    public static final int MAX_EPISODES = 1000;
 
     //filename to store experimental results
     public static final String OUTPUT_FILE = "AIReport.csv";
@@ -41,8 +45,8 @@ public class StateMachineAgent {
      * of cmds to execute in tricky situations
      */
     //variables related to the SUS
-    private double susScore = 0;
-    private static final int MAX_SEQUENCE_SIZE = 7; //just picked 7 as a guess
+    protected double susScore = 0;
+    private static final int MAX_SEQUENCE_SIZE = 10; //just picked 7 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
     private static int SUS_CONSTANT = 10; //will become final after testing to find values
 
@@ -582,7 +586,9 @@ public class StateMachineAgent {
     }
 
 	/**
-	 * Returns the index of the given character in the alphabet array
+	 * Returns the index of the given character in the
+     *
+     * array
 	 * @param toCheck the character to find the index of
 	 * @return the index of toCheck
 	 */
