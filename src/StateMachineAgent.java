@@ -30,10 +30,10 @@ public class StateMachineAgent {
     public static final int GOAL = 1;
 
     /** Number of state machines to test a given constant combo with */
-    public static final int NUM_MACHINES = 50;
+    public static final int NUM_MACHINES = 25;
 
     /** Number of episodes per run */
-    public static final int MAX_EPISODES = 1000;
+    public static final int MAX_EPISODES = 3000;
 
     //filename to store experimental results
     public static final String OUTPUT_FILE = "AIReport.csv";
@@ -48,7 +48,7 @@ public class StateMachineAgent {
     protected double susScore = 0;
     private static final int MAX_SEQUENCE_SIZE = 10; //just picked 7 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
-    private static int SUS_CONSTANT = 10; //will become final after testing to find values
+    private static int SUS_CONSTANT = 20; //will become final after testing to find values
 
     /**
      * The LMS (llama) is the longest matching sequence that matching with what the agent
