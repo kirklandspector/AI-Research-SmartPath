@@ -89,10 +89,10 @@ public class NewAgent extends StateMachineAgent
             //iterate through episodic memory and get found sequences of length COMPARE_SIZE
             //get a quality score for each and fill the top scores in the recommendation array
             //compare scores to SUS to determine what move to do next
-            for(int w = lastGoalIndex; w >= COMPARE_SIZE-1; w--){
+            for(int w = lastGoalIndex; w >= COMPARE_SIZE; w--){
                 int meetsFoundConditions = checkFoundConditions(w); //check that we can get a found seq
                 if(meetsFoundConditions == -1){
-                    foundSequence = getFoundSequence(w+1); //fill found sequence
+                    foundSequence = getFoundSequence(w); //fill found sequence
                 }
                 else {
                     w = meetsFoundConditions; //doesnt meet conditions, start at next goal
@@ -127,7 +127,7 @@ public class NewAgent extends StateMachineAgent
                 char action = topNextActions[i].recommendedAction;
 
                 //add the score of the recommendation object to sumOfTopEightScores
-                sumOfTopScores = topNextActions[i].score;
+                sumOfTopScores = topNextActions[i].score + sumOfTopScores;
 
                 //get the index of that action in the alphabet array
                 int indexOfAction = findAlphabetIndex(action);
@@ -275,7 +275,7 @@ public class NewAgent extends StateMachineAgent
         for(int i=1; i<=originalString.length(); i++){ // i determines length of string
             for(int j=0; j<=originalString.length()-i; j++){ // j determines where we start (indice) in string
                 originalSubsequences.add(originalString.substring(j,j+i));
-                foundSubsequences.add(foundString.substring(i,j+i));
+                foundSubsequences.add(foundString.substring(j,j+i));
             }
         }
         //for each subsequence in original, compare to see if it is in found list of subsequences
