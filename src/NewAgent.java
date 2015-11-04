@@ -74,6 +74,7 @@ public class NewAgent extends StateMachineAgent
         int lastGoalIndex; //index of last goal
         double susCounter = 0; //record how many times we choose SUS (%)
         double decisionCounter = 0; //counter for how many times we make a decision
+        int stepsFromGoal = 0; //how far found sequence is from last goal index
 
 
         //while we have not exceeded the max number of episodes, keep getting new original sequences to test
@@ -93,6 +94,7 @@ public class NewAgent extends StateMachineAgent
                 int meetsFoundConditions = checkFoundConditions(w); //check that we can get a found seq
                 if(meetsFoundConditions == -1){
                     foundSequence = getFoundSequence(w); //fill found sequence
+                    stepsFromGoal = lastGoalIndex - w;
                 }
                 else {
                     w = meetsFoundConditions; //doesnt meet conditions, start at next goal
@@ -109,7 +111,7 @@ public class NewAgent extends StateMachineAgent
 
                 //make a Recommendation object containing the score, steps to Goal, and character command
                 //place in the last spot in the topNextActions array
-                topNextActions[NUM_TOP_ACTIONS] = new Recommendation(tempQualityScore, 0, episodicMemory.get(w+1).command);
+                topNextActions[NUM_TOP_ACTIONS] = new Recommendation(tempQualityScore, stepsFromGoal, episodicMemory.get(w+1).command);
 
                 //sort the array (array will be sorted from ascending to descending)
                 Arrays.sort(topNextActions);
@@ -182,7 +184,7 @@ public class NewAgent extends StateMachineAgent
     private void resetFrequencyArrays(){
         for (int i = 0; i < topNextActions.length; i++)
         {
-            topNextActions[i] = new Recommendation(0.0, 50, alphabet[random.nextInt(alphabet.length)]);
+            topNextActions[i] = new Recommendation(0.0, 0, alphabet[random.nextInt(alphabet.length)]);
         }
 
         //fill frequencyNextActions with 0s
