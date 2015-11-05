@@ -43,6 +43,12 @@ public class NewAgent extends StateMachineAgent
     //SUS percentage variable
     double percentSUS = 0;
 
+    //number of runs we want to do
+    protected static int NUM_RUNS = 2;
+
+    //name of file we are saving run info in, changes based on run number
+    protected static String fileName;
+
     /**
      * NewAgent()
      * constructor
@@ -398,7 +404,7 @@ public class NewAgent extends StateMachineAgent
     {
         try {
 
-            FileWriter csv = new FileWriter(OUTPUT_FILE);
+            FileWriter csv = new FileWriter(fileName);
             for(int i = 0; i < NUM_MACHINES; ++i) {
                 System.out.println("machine number: " + (i+1));
                 NewAgent gilligan = new NewAgent();
@@ -455,8 +461,11 @@ public class NewAgent extends StateMachineAgent
      */
     public static void main(String [ ] args) {
 
-        //System.out.println(generateRandomEpisodes(100));
-        tryGenLearningCurves();
+        for(int i=0; i < NUM_RUNS; i++){
+            //name our csv file after what run number we are currently on
+            fileName = ("AIReport"+i+".csv");
+            tryGenLearningCurves();
+        }
         System.out.println("Done.");
     }
 }
