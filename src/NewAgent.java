@@ -44,7 +44,7 @@ public class NewAgent extends StateMachineAgent
     double percentSUS = 0;
 
     //number of runs we want to do
-    protected static int NUM_RUNS = 2;
+    protected static int NUM_RUNS = 3;
 
     //name of file we are saving run info in, changes based on run number
     protected static String fileName;
@@ -433,6 +433,7 @@ public class NewAgent extends StateMachineAgent
             csv.append(episodicMemory.size() + ",");
             csv.flush();
             int prevGoalPoint = 0; //which episode I last reached the goal at
+            csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
             for (int i = 0; i < episodicMemory.size(); ++i) {
                 Episode ep = episodicMemory.get(i);
                 if (ep.sensorValue == GOAL) {
@@ -442,7 +443,7 @@ public class NewAgent extends StateMachineAgent
                 }//if
             }//for
 
-            csv.append(" SUS percentage: " + percentSUS);
+            //csv.append(" SUS percentage: " + percentSUS);
 
             csv.append("\n");
             csv.flush();
@@ -464,6 +465,7 @@ public class NewAgent extends StateMachineAgent
         for(int i=0; i < NUM_RUNS; i++){
             //name our csv file after what run number we are currently on
             fileName = ("AIReport"+i+".csv");
+            SUS_CONSTANT = 15 + i;
             tryGenLearningCurves();
         }
         System.out.println("Done.");

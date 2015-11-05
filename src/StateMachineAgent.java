@@ -48,7 +48,7 @@ public class StateMachineAgent {
     protected double susScore = 0;
     private static final int MAX_SEQUENCE_SIZE = 10; //just picked 7 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
-    private static int SUS_CONSTANT = 20; //will become final after testing to find values
+    protected static int SUS_CONSTANT = 20; //will become final after testing to find values
 
     /**
      * The LMS (llama) is the longest matching sequence that matching with what the agent

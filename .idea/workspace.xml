@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="3b0d8bb3-2c80-4e27-9744-76aec6ff511e" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/NewAgent.java" afterPath="$PROJECT_DIR$/src/NewAgent.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/StateMachineAgent.java" afterPath="$PROJECT_DIR$/src/StateMachineAgent.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="AI-Research-SmartPath.iws" />
@@ -28,8 +29,8 @@
       <file leaf-file-name="NewAgent.java" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/NewAgent.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-257.22223">
-              <caret line="463" column="20" selection-start-line="463" selection-start-column="20" selection-end-line="463" selection-end-column="20" />
+            <state vertical-scroll-proportion="-4.703704">
+              <caret line="435" column="61" selection-start-line="435" selection-start-column="61" selection-end-line="435" selection-end-column="61" />
               <folding>
                 <element signature="imports" expanded="true" />
                 <element signature="e#10495#10503#0" expanded="true" />
@@ -39,11 +40,41 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="StateMachineAgent.java" pinned="false" current-in-tab="true">
+      <file leaf-file-name="AIReport0.csv" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/AIReport0.csv">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.588843">
+              <caret line="19" column="13" selection-start-line="19" selection-start-column="13" selection-end-line="19" selection-end-column="13" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="AIReport1.csv" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/AIReport1.csv">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.0">
+              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="AIReport2.csv" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/AIReport2.csv">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.0">
+              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="StateMachineAgent.java" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/StateMachineAgent.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.9607438">
-              <caret line="35" column="46" selection-start-line="35" selection-start-column="46" selection-end-line="35" selection-end-column="46" />
+            <state vertical-scroll-proportion="0.0">
+              <caret line="50" column="13" selection-start-line="50" selection-start-column="13" selection-end-line="50" selection-end-column="13" />
               <folding />
             </state>
           </provider>
@@ -108,8 +139,8 @@
       <list>
         <option value="$PROJECT_DIR$/src/Episode.java" />
         <option value="$PROJECT_DIR$/src/Recommendation.java" />
-        <option value="$PROJECT_DIR$/src/StateMachineAgent.java" />
         <option value="$PROJECT_DIR$/src/StateMachineEnvironment.java" />
+        <option value="$PROJECT_DIR$/src/StateMachineAgent.java" />
         <option value="$PROJECT_DIR$/src/NewAgent.java" />
       </list>
     </option>
@@ -401,7 +432,13 @@
       <option name="project" value="LOCAL" />
       <updated>1446663957162</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Modified main so that we can choose how many runs we would like to do and create CSV files based on run numbers. This set us up to be able to modify different constants for different runs">
+      <created>1446765101111</created>
+      <option name="number" value="00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1446765101111</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -449,7 +486,8 @@
     <MESSAGE value="Fixed extra } error!" />
     <MESSAGE value="This version of NewAgent.java has SUS integrated in. It also has a new action-choosing mechanism--when the NewAgent needs to make a move it gets to choose between a SUS move or the most frequent character action recommended by the top eight scores (see exploreEnvironment in NewAgent.java)." />
     <MESSAGE value="Began implementing steps to goal." />
-    <option name="LAST_COMMIT_MESSAGE" value="Began implementing steps to goal." />
+    <MESSAGE value="Modified main so that we can choose how many runs we would like to do and create CSV files based on run numbers. This set us up to be able to modify different constants for different runs" />
+    <option name="LAST_COMMIT_MESSAGE" value="Modified main so that we can choose how many runs we would like to do and create CSV files based on run numbers. This set us up to be able to modify different constants for different runs" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -926,17 +964,18 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/AIReport.csv">
+    <entry file="file://$PROJECT_DIR$/src/StateMachineAgent.java">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <caret line="50" column="13" selection-start-line="50" selection-start-column="13" selection-end-line="50" selection-end-column="13" />
+          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/NewAgent.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-257.22223">
-          <caret line="463" column="20" selection-start-line="463" selection-start-column="20" selection-end-line="463" selection-end-column="20" />
+        <state vertical-scroll-proportion="-4.703704">
+          <caret line="435" column="61" selection-start-line="435" selection-start-column="61" selection-end-line="435" selection-end-column="61" />
           <folding>
             <element signature="imports" expanded="true" />
             <element signature="e#10495#10503#0" expanded="true" />
@@ -945,10 +984,34 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/StateMachineAgent.java">
+    <entry file="file://$PROJECT_DIR$/AIReport.csv">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.9607438">
-          <caret line="35" column="46" selection-start-line="35" selection-start-column="46" selection-end-line="35" selection-end-column="46" />
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/AIReport1.csv">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/AIReport2.csv">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/AIReport0.csv">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.588843">
+          <caret line="19" column="13" selection-start-line="19" selection-start-column="13" selection-end-line="19" selection-end-column="13" />
           <folding />
         </state>
       </provider>
