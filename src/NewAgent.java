@@ -42,6 +42,7 @@ public class NewAgent extends StateMachineAgent
 
     //SUS percentage variable
     double percentSUS = 0;
+    double percentRandom = 0;
 
     //number of runs we want to do
     protected static int NUM_RUNS = 3;
@@ -79,6 +80,7 @@ public class NewAgent extends StateMachineAgent
         Episode[] foundSequence = new Episode[COMPARE_SIZE]; //initialize foundSequence
         int lastGoalIndex; //index of last goal
         double susCounter = 0; //record how many times we choose SUS (%)
+        double randomCounter = 0;//record how many times we choose random
         double decisionCounter = 0; //counter for how many times we make a decision
         int stepsFromGoal = 0; //how far found sequence is from last goal index
 
@@ -165,8 +167,14 @@ public class NewAgent extends StateMachineAgent
 
             decisionCounter++;
 
-            //if the SUS score is higher, do the SUS path
-            if (susScore > avgTopScores){
+            //if the RANDOM_SCORE is higher, do a random move
+            if (RANDOM_SCORE > susScore && RANDOM_SCORE > avgTopScores) {
+                String pathWeAttempt = "" + generateSemiRandomAction();
+                Path finalPath = stringToPath(pathWeAttempt);
+                tryPath(finalPath);
+                randomCounter++;
+            }
+            else if (susScore > avgTopScores){
                 String pathToAttempt = getSus();
                 Path finalPath = stringToPath(pathToAttempt);
                 tryPath(finalPath);
@@ -178,6 +186,7 @@ public class NewAgent extends StateMachineAgent
             }
         }
         percentSUS = (susCounter/decisionCounter)*100.0;
+        percentRandom = (randomCounter/decisionCounter)*100.0;
     }
 
 
@@ -434,6 +443,10 @@ public class NewAgent extends StateMachineAgent
             csv.flush();
             int prevGoalPoint = 0; //which episode I last reached the goal at
             csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
+            csv.append(" SUS percentage: " + percentSUS + ",");
+            csv.append(" Random constant: " + RANDOM_SCORE + ",");
+            csv.append(" Random percentage: " + percentRandom + " ,");
+
             for (int i = 0; i < episodicMemory.size(); ++i) {
                 Episode ep = episodicMemory.get(i);
                 if (ep.sensorValue == GOAL) {
@@ -443,7 +456,9 @@ public class NewAgent extends StateMachineAgent
                 }//if
             }//for
 
-            //csv.append(" SUS percentage: " + percentSUS);
+
+
+
 
             csv.append("\n");
             csv.flush();
@@ -464,8 +479,9 @@ public class NewAgent extends StateMachineAgent
 
         for(int i=0; i < NUM_RUNS; i++){
             //name our csv file after what run number we are currently on
-            fileName = ("AIReport"+i+".csv");
-            SUS_CONSTANT = 15 + i;
+            fileName = ("AIReportQuality10_SUS0_RANDOM16_"+i+".csv");
+            SUS_CONSTANT = 0;
+            RANDOM_SCORE = 16;
             tryGenLearningCurves();
         }
         System.out.println("Done.");

@@ -63,7 +63,7 @@ public class StateMachineAgent {
     public static final int MATCHED_INDEX = 0;
     public static final int MATCHED_LENGTH = 1;
 
-    private static int RANDOM_SCORE = 1; //will become final after testing
+    protected static int RANDOM_SCORE = 1; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted (S.W.A.G.)
