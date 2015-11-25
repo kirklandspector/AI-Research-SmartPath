@@ -45,10 +45,16 @@ public class NewAgent extends StateMachineAgent
     double percentRandom = 0;
 
     //number of runs we want to do
-    protected static int NUM_RUNS = 3;
+    protected static int NUM_RUNS = 5;
 
     //name of file we are saving run info in, changes based on run number
     protected static String fileName;
+
+
+    //DEBUGGING
+    protected static long totalMachineTime = 0;
+    protected static double avgRunTimeCheckCond = 0;
+    protected static double avgRunTimeFoundSeq = 0;
 
     /**
      * NewAgent()
@@ -84,28 +90,85 @@ public class NewAgent extends StateMachineAgent
         double decisionCounter = 0; //counter for how many times we make a decision
         int stepsFromGoal = 0; //how far found sequence is from last goal index
 
+        //DEBUGGING
+        long sumRunTimesCheckCond = 0;
+        int numCallsCheckCond = 0;
+        long sumRunTimesFoundSeq = 0;
+        int numFound = 0;
 
         //while we have not exceeded the max number of episodes, keep getting new original sequences to test
         //then make moves
         while (episodicMemory.size() < MAX_EPISODES) {
             lastGoalIndex = findLastGoal(episodicMemory.size()); //get last goal index
+
+            //DEBUGGING/////////////////////////
+            long startCheckCond = System.currentTimeMillis();
             lastGoalIndex = checkConditions(lastGoalIndex); //check conditions to ensure you can get original seq
+            long endCheckCond = System.currentTimeMillis();
+
+            sumRunTimesCheckCond = (endCheckCond-startCheckCond) + sumRunTimesCheckCond;
+            numCallsCheckCond++;
+            /////////////////////////////////////
+
             originalSequence = getOriginalSequence(); //get the original sequence of size COMPARE_SIZE
 
             //reset frequency arrays for each new original sequence
             resetFrequencyArrays();
 
+            //DEBUGGING///////////////////////////////////////
+            boolean metFoundCond = true;
+            long startFoundCond = 0;
             //iterate through episodic memory and get found sequences of length COMPARE_SIZE
             //get a quality score for each and fill the top scores in the recommendation array
             //compare scores to SUS to determine what move to do next
             for(int w = lastGoalIndex; w >= COMPARE_SIZE; w--){
+
+                if(metFoundCond)
+                {
+                    //a found sequence has been "found"...time to start over again
+                    startFoundCond = System.currentTimeMillis();
+                }
+
+
                 int meetsFoundConditions = checkFoundConditions(w); //check that we can get a found seq
                 if(meetsFoundConditions == -1){
+
+                    //we're good to go...
+                    //get the end time
+                    long endFoundCond = System.currentTimeMillis();
+
+                    //add the difference between endFoundCond and startFoundCond to sumRunTimesCheckFoundCond
+                    sumRunTimesFoundSeq = sumRunTimesFoundSeq + (endFoundCond-startFoundCond);
+
+                    //increment counter (keeps track of how many found sequences were found)
+                    numFound++;
+
+                    //set metFoundCond to true
+                    metFoundCond = true;
+
                     foundSequence = getFoundSequence(w); //fill found sequence
                     stepsFromGoal = lastGoalIndex - w;
+
+//                    //a found sequence has been found...
+//                    //get the end time
+//                    long endFoundCond = System.currentTimeMillis();
+//
+//                    //add the difference between endFoundCond and startFoundCond to sumRunTimesCheckFoundCond
+//                    sumRunTimesFoundSeq = sumRunTimesFoundSeq + (endFoundCond-startFoundCond);
+//
+//                    //increment counter (keeps track of how many found sequences were found)
+//                    numFound++;
+//
+//                    //set metFoundCond to true
+//                    metFoundCond = true;
+
                 }
                 else {
                     w = meetsFoundConditions; //doesnt meet conditions, start at next goal
+
+                    //IMPORTANT
+                    metFoundCond = false;
+
                     continue;
                 }
 
@@ -187,6 +250,12 @@ public class NewAgent extends StateMachineAgent
         }
         percentSUS = (susCounter/decisionCounter)*100.0;
         percentRandom = (randomCounter/decisionCounter)*100.0;
+
+
+        avgRunTimeCheckCond = sumRunTimesCheckCond/(double)numCallsCheckCond;
+        avgRunTimeFoundSeq = sumRunTimesFoundSeq/(double)numFound;
+
+
     }
 
 
@@ -417,7 +486,12 @@ public class NewAgent extends StateMachineAgent
             for(int i = 0; i < NUM_MACHINES; ++i) {
                 System.out.println("machine number: " + (i+1));
                 NewAgent gilligan = new NewAgent();
+
+                long startTime = System.currentTimeMillis();
                 gilligan.exploreEnvironment();
+                long endTime = System.currentTimeMillis();
+
+                totalMachineTime = endTime - startTime;
                 gilligan.recordLearningCurve(csv);
             }
             csv.close();
@@ -442,10 +516,13 @@ public class NewAgent extends StateMachineAgent
             csv.append(episodicMemory.size() + ",");
             csv.flush();
             int prevGoalPoint = 0; //which episode I last reached the goal at
-            csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
-            csv.append(" SUS percentage: " + percentSUS + ",");
-            csv.append(" Random constant: " + RANDOM_SCORE + ",");
-            csv.append(" Random percentage: " + percentRandom + " ,");
+            //csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
+            //csv.append(" SUS percentage: " + percentSUS + ",");
+            //csv.append(" Random constant: " + RANDOM_SCORE + ",");
+            //csv.append(" Random percentage: " + percentRandom + " ,");
+            csv.append(" Machine RunTime: " + totalMachineTime/(double)1000 + ",");
+            csv.append(" Average checkConditions RunTime: " + avgRunTimeCheckCond/(double)1000 + ",");
+            csv.append("" + avgRunTimeFoundSeq/(double)1000 + ",");
 
             for (int i = 0; i < episodicMemory.size(); ++i) {
                 Episode ep = episodicMemory.get(i);
@@ -455,11 +532,6 @@ public class NewAgent extends StateMachineAgent
                     prevGoalPoint = i;
                 }//if
             }//for
-
-
-
-
-
             csv.append("\n");
             csv.flush();
         } catch (IOException e) {
@@ -479,8 +551,8 @@ public class NewAgent extends StateMachineAgent
 
         for(int i=0; i < NUM_RUNS; i++){
             //name our csv file after what run number we are currently on
-            fileName = ("AIReportQuality10_SUS0_RANDOM16_"+i+".csv");
-            SUS_CONSTANT = 0;
+            fileName = ("AIReportQuality10_SUS96_RANDOM16_"+i+".csv");
+            SUS_CONSTANT = 96;
             RANDOM_SCORE = 16;
             tryGenLearningCurves();
         }

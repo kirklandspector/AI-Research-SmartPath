@@ -30,10 +30,10 @@ public class StateMachineAgent {
     public static final int GOAL = 1;
 
     /** Number of state machines to test a given constant combo with */
-    public static final int NUM_MACHINES = 25;
+    public static final int NUM_MACHINES = 10;
 
     /** Number of episodes per run */
-    public static final int MAX_EPISODES = 500;
+    public static final int MAX_EPISODES = 5000;
 
     //filename to store experimental results
     public static final String OUTPUT_FILE = "AIReport.csv";
