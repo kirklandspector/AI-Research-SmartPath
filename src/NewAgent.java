@@ -2,7 +2,6 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.*;
 
 
@@ -43,6 +42,7 @@ public class NewAgent extends StateMachineAgent
     //SUS percentage variable
     double percentSUS = 0;
     double percentRandom = 0;
+    double percentQuality = 0;
 
     //number of runs we want to do
     protected static int NUM_RUNS = 5;
@@ -87,6 +87,7 @@ public class NewAgent extends StateMachineAgent
         int lastGoalIndex; //index of last goal
         double susCounter = 0; //record how many times we choose SUS (%)
         double randomCounter = 0;//record how many times we choose random
+        double qualityCounter = 0;//record how many times we choose quality
         double decisionCounter = 0; //counter for how many times we make a decision
         int stepsFromGoal = 0; //how far found sequence is from last goal index
 
@@ -239,6 +240,11 @@ public class NewAgent extends StateMachineAgent
             }
             else if (susScore > avgTopScores){
                 String pathToAttempt = getSus();
+                if (pathToAttempt == null)
+                {
+                    pathToAttempt = "" + generateSemiRandomAction();
+                    susCounter--;
+                }
                 Path finalPath = stringToPath(pathToAttempt);
                 tryPath(finalPath);
                 susCounter++;
@@ -246,10 +252,12 @@ public class NewAgent extends StateMachineAgent
             //if the avgTopScores is higher, do most frequently recommended char
             else {
                 tryPath(stringToPath(Character.toString(alphabet[indexBestMove])));
+                qualityCounter++;
             }
         }
         percentSUS = (susCounter/decisionCounter)*100.0;
         percentRandom = (randomCounter/decisionCounter)*100.0;
+        percentQuality = (qualityCounter/decisionCounter)*100.0;
 
 
         avgRunTimeCheckCond = sumRunTimesCheckCond/(double)numCallsCheckCond;
@@ -400,20 +408,20 @@ public class NewAgent extends StateMachineAgent
      */
     private int checkConditions(int lastGoalIndex){
 
-        //while we don't have a goal in episodic memory, keep making SUS moves
+        //while we don't have a goal in episodic memory, keep making random moves
         while (lastGoalIndex == -1) {
-            String pathToAttempt = getSus();
-            Path aPath = stringToPath(pathToAttempt);
-            tryPath(aPath);
+            String pathWeAttempt = "" + generateSemiRandomAction();
+            Path finalPath = stringToPath(pathWeAttempt);
+            tryPath(finalPath);
 
             lastGoalIndex = findLastGoal(episodicMemory.size()-1);
         }
 
 
-        //If we've just reached the goal in the last 8 characters, then generate SUS steps until long enough
+        //If we've just reached the goal in the last 8 characters, then generate random steps until long enough
         while (lastGoalIndex >= episodicMemory.size() - COMPARE_SIZE || episodicMemory.size() < COMPARE_SIZE || lastGoalIndex < COMPARE_SIZE){
-            String pathToAttempt = getSus();
-            Path finalPath = stringToPath(pathToAttempt);
+            String pathWeAttempt = "" + generateSemiRandomAction();
+            Path finalPath = stringToPath(pathWeAttempt);
             tryPath(finalPath);
 
             lastGoalIndex = findLastGoal(episodicMemory.size()-1);
@@ -516,13 +524,17 @@ public class NewAgent extends StateMachineAgent
             csv.append(episodicMemory.size() + ",");
             csv.flush();
             int prevGoalPoint = 0; //which episode I last reached the goal at
-            //csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
-            //csv.append(" SUS percentage: " + percentSUS + ",");
-            //csv.append(" Random constant: " + RANDOM_SCORE + ",");
-            //csv.append(" Random percentage: " + percentRandom + " ,");
-            csv.append(" Machine RunTime: " + totalMachineTime/(double)1000 + ",");
-            csv.append(" Average checkConditions RunTime: " + avgRunTimeCheckCond/(double)1000 + ",");
-            csv.append("" + avgRunTimeFoundSeq/(double)1000 + ",");
+            csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
+            csv.append(" SUS percentage: " + percentSUS + ",");
+            csv.append(" Random constant: " + RANDOM_SCORE + ",");
+            csv.append(" Random percentage: " + percentRandom + " ,");
+            //csv.append(" Machine RunTime: " + totalMachineTime/(double)1000 + ",");
+            //csv.append(" Average checkConditions RunTime: " + avgRunTimeCheckCond/(double)1000 + ",");
+            //csv.append("" + avgRunTimeFoundSeq/(double)1000 + ",");
+            csv.append(" Quality constant: " + ALIGNED_CONSTANT + ",");
+            csv.append(" Quality percentage: " + percentQuality + ",");
+
+
 
             for (int i = 0; i < episodicMemory.size(); ++i) {
                 Episode ep = episodicMemory.get(i);
@@ -539,6 +551,84 @@ public class NewAgent extends StateMachineAgent
             System.exit(-1);
         }
     }
+    /**
+     * tryOneCombo
+     *
+     * a helper method for trying one particular combination of SUS/LMS/Random
+     * weights.  THis is meant to be called from main()
+     *
+     * @param csv         an open file to write to
+     * @param randWeight  weight for random choice
+     * @param susWeight   weight for SUS choice
+     * @param qualityWeight   weight for quality choice
+     */
+    public static void tryOneCombo(FileWriter csv, int randWeight, int susWeight, int qualityWeight)
+    {
+
+        double sum = 0;//total num successes
+        for (int l = 0; l < NUM_MACHINES; l++) {//test with multiple FSMs
+
+            NewAgent gilligan = new NewAgent();
+            RANDOM_SCORE = randWeight;
+            SUS_CONSTANT = susWeight;
+            COUNTING_CONSTANT = qualityWeight;
+            ALIGNED_CONSTANT = qualityWeight;
+
+            gilligan.exploreEnvironment();
+            gilligan.recordLearningCurve(csv);
+
+
+            sum += gilligan.currentSuccesses;
+        }//for
+        double averageSuccesses = sum / NUM_MACHINES;
+        //write the results of this combo to the file
+        try {
+
+            System.out.println("tryOneCombo...");
+            csv.append("\n");
+            csv.flush();
+        }
+        catch (IOException e) {
+            System.out.println("Could not create file, what a noob...");
+            System.exit(-1);
+        }
+
+
+    }//tryOneCombo
+
+    /**
+     * tryAllCombos
+     *
+     * exhaustively tests all permutations of weights within specified ranges.
+     *
+     * TODO: Range values are hard-coded at the moment.  
+     */
+    public static void tryAllCombos()
+    {
+        try {
+            FileWriter csv = new FileWriter(OUTPUT_FILE);
+            //csv.append("Random,SUS,Quality,Average Score\n");
+
+            //constants loops (trying many permutations of values)
+            for (int i = 2; i < 30; i+=1) {//random loop
+                for (int j = 1; j < 48; j+=1) {//sus loop
+                    for (int k = 1; k < 50; k+=1) {//quality loop
+                        System.out.println("Testing Random Constant: " + i
+                                + " ~~~ Testing SUS Constant: " + j
+                                + " ~~~ Testing Quality Constant: " + k);
+
+                        tryOneCombo(csv, i, j, k);
+
+                    }//quality
+                }//sus
+            }//random
+            csv.close();
+        }
+        catch (IOException e) {
+            System.out.println("tryAllCombos: Could not create file, what a noob...");
+            System.exit(-1);
+        }
+    }//tryAllCombos
 
 
     /**
@@ -549,16 +639,14 @@ public class NewAgent extends StateMachineAgent
      */
     public static void main(String [ ] args) {
 
-        for(int i=0; i < NUM_RUNS; i++){
-            //name our csv file after what run number we are currently on
-            fileName = ("AIReportQuality10_SUS96_RANDOM16_"+i+".csv");
-            SUS_CONSTANT = 96;
-            RANDOM_SCORE = 16;
-            tryGenLearningCurves();
-        }
+//        for(int i=0; i < NUM_RUNS; i++){
+//            //name our csv file after what run number we are currently on
+//            fileName = ("AIReportQuality10_SUS96_RANDOM16_"+i+".csv");
+//            SUS_CONSTANT = 96;
+//            RANDOM_SCORE = 16;
+//            tryGenLearningCurves();
+//        }
+        tryAllCombos();
         System.out.println("Done.");
     }
 }
-
-
-
