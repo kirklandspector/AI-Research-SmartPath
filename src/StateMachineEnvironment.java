@@ -261,6 +261,7 @@ public class StateMachineEnvironment {
         Random randoSquew = new Random();
         int randoState = randoSquew.nextInt(NUM_STATES - 1);
 		currentState = randoState;
+
 	}
 	
 	/**

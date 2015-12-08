@@ -30,7 +30,7 @@ public class StateMachineAgent {
     public static final int GOAL = 1;
 
     /** Number of state machines to test a given constant combo with */
-    public static final int NUM_MACHINES = 10;
+    public static final int NUM_MACHINES = 100;
 
     /** Number of episodes per run */
     public static final int MAX_EPISODES = 5000;
@@ -505,31 +505,31 @@ public class StateMachineAgent {
 		return new Path(pathChars);
 	}
 
-    //TODO: Save this method for later use
-	/**
-     * reset
-     *
-	 * Resets the agent by having it act randomly until it reaches the goal.
-	 * This will be changed to a more intelligent scheme later on
-	 */
-	public void reset() {
-		char toCheck;
-		boolean[] sensors;
-		int encodedSensorResult;
-
-		//Currently, the agent will just move randomly until it reaches the goal
-		//and magically resets itself
-		do {
-			toCheck = generateSemiRandomAction();
-			sensors = env.tick(toCheck);
-			encodedSensorResult = encodeSensors(sensors);
-			episodicMemory.add(new Episode(toCheck, encodedSensorResult));
-			/*if (episodicMemory.size() > 500000000) {
-				System.exit(0);
-			}*/
-
-		} while (!sensors[IS_GOAL]); // Keep going until we've found the goal
-	}
+//    //TODO: Save this method for later use
+//	/**
+//     * reset
+//     *
+//	 * Resets the agent by having it act randomly until it reaches the goal.
+//	 * This will be changed to a more intelligent scheme later on
+//	 */
+//	public void reset() {
+//		char toCheck;
+//		boolean[] sensors;
+//		int encodedSensorResult;
+//
+//		//Currently, the agent will just move randomly until it reaches the goal
+//		//and magically resets itself
+//		do {
+//			toCheck = generateSemiRandomAction();
+//			sensors = env.tick(toCheck);
+//			encodedSensorResult = encodeSensors(sensors);
+//			episodicMemory.add(new Episode(toCheck, encodedSensorResult));
+//			/*if (episodicMemory.size() > 500000000) {
+//				System.exit(0);
+//			}*/
+//
+//		} while (!sensors[IS_GOAL]); // Keep going until we've found the goal
+//	}
 
 	/**
      * generateSemiRandomAction

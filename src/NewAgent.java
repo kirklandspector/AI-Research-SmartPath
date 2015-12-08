@@ -178,7 +178,7 @@ public class NewAgent extends StateMachineAgent
                 double alignedMatches = getAlignedMatchesScore(originalSequence, foundSequence);
 
                 //get a total quality score based on the two quality methods
-                int tempQualityScore = (int)((COUNTING_CONSTANT)*countingScore + (ALIGNED_CONSTANT)*alignedMatches);
+                double tempQualityScore = (double)((COUNTING_CONSTANT)*countingScore + (ALIGNED_CONSTANT)*alignedMatches);
 
 
                 //make a Recommendation object containing the score, steps to Goal, and character command
@@ -443,7 +443,7 @@ public class NewAgent extends StateMachineAgent
         for(int i=(indice-COMPARE_SIZE)+1; i<indice; i++){
 
             //if the episode is a goal, return the index of that episode
-            if(episodicMemory.get(i).sensorValue == 1){
+            if(episodicMemory.get(i).sensorValue == GOAL){
                 return i;
             }
         }
@@ -575,13 +575,14 @@ public class NewAgent extends StateMachineAgent
             ALIGNED_CONSTANT = qualityWeight;
 
             gilligan.exploreEnvironment();
+            //write the results of this combo to the file
             gilligan.recordLearningCurve(csv);
 
 
             sum += gilligan.currentSuccesses;
         }//for
         double averageSuccesses = sum / NUM_MACHINES;
-        //write the results of this combo to the file
+
         try {
 
             System.out.println("tryOneCombo...");
@@ -639,14 +640,16 @@ public class NewAgent extends StateMachineAgent
      */
     public static void main(String [ ] args) {
 
-//        for(int i=0; i < NUM_RUNS; i++){
-//            //name our csv file after what run number we are currently on
-//            fileName = ("AIReportQuality10_SUS96_RANDOM16_"+i+".csv");
-//            SUS_CONSTANT = 96;
-//            RANDOM_SCORE = 16;
-//            tryGenLearningCurves();
-//        }
-        tryAllCombos();
+        for(int i=0; i < NUM_RUNS; i++){
+            //name our csv file after what run number we are currently on
+            fileName = ("AIReportQuality1_SUS0_RANDOM1_"+i+".csv");
+            SUS_CONSTANT = 0;
+            RANDOM_SCORE = 8;
+            COUNTING_CONSTANT = 4;
+            ALIGNED_CONSTANT = 4;
+            tryGenLearningCurves();
+        }
+        //tryAllCombos();
         System.out.println("Done.");
     }
 }
