@@ -21,16 +21,15 @@ public class StateMachineAgent {
 	public static final int IS_GOAL = 1;
 
 	//Sensor values
+    //Important Note: we discovered a bug with the way the sensor constant values in the StateMachineAgent in the
+    //main branch worked with the NewAgent and thus changed the TRANSITION_ONLY constant from 1 to 2
+    //and the GOAL constant from 2 to 1
 	public static final int NO_TRANSITION = 0;
-	//public static final int TRANSITION_ONLY = 1;
-	//public static final int GOAL = 2;
-
-    //attempting to fix issue in NewAgent where GOAL is assumed to be 1
     public static final int TRANSITION_ONLY = 2;
     public static final int GOAL = 1;
 
     /** Number of state machines to test a given constant combo with */
-    public static final int NUM_MACHINES = 100;
+    public static final int NUM_MACHINES = 25;
 
     /** Number of episodes per run */
     public static final int MAX_EPISODES = 5000;
@@ -48,7 +47,7 @@ public class StateMachineAgent {
     protected double susScore = 0;
     private static final int MAX_SEQUENCE_SIZE = 10; //just picked 7 as a guess
     private ArrayList<ArrayList<String>> sequencesNotPerformed;
-    protected static int SUS_CONSTANT = 20; //will become final after testing to find values
+    protected static int SUS_CONSTANT = 96; //will become final after testing to find values
 
     /**
      * The LMS (llama) is the longest matching sequence that matching with what the agent
@@ -63,7 +62,7 @@ public class StateMachineAgent {
     public static final int MATCHED_INDEX = 0;
     public static final int MATCHED_LENGTH = 1;
 
-    protected static int RANDOM_SCORE = 1; //will become final after testing
+    protected static int RANDOM_SCORE = 16; //will become final after testing
 
     //chance that a duplicate cmd is allowed if a random action is necessary
     double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted (S.W.A.G.)
