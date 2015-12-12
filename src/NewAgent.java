@@ -11,11 +11,10 @@ import java.util.*;
  *
  * This is a "trial" agent that is being used to test a new algorithm for
  * finding the shortest path to the goal. This algorithm looks at
- * sequences of length 8 in episodic memory and combines the scores from
- * the positional weight matrix, a constituency/substring match algorithm, and the
+ * sequences of length 8 (length determined by constant)in episodic memory and combines the scores from
+ * directly aligned matches, a constituency/substring match algorithm, and the
  * number of steps to the goal to find the best possible
  * next move.
- * this is a default task
  * @author: Sara Meisburger and Christine Chen
  *
  */
@@ -26,28 +25,37 @@ public class NewAgent extends StateMachineAgent
     //constants
     double DUPLICATE_FORGIVENESS = .25; //25% chance a duplicate is permitted
     protected static int NUM_TOP_ACTIONS = 8; //number of top scores we will keep track of
-    protected static int COMPARE_SIZE = 8; //length of arrays to compare to get quality score
+    protected static int COMPARE_SIZE = 8; //length of sequence to compare to get quality score
 
     //constants for scores
     private static int COUNTING_CONSTANT = 10; //multiplier for counting score
     private static int ALIGNED_CONSTANT= 10; //multiplier for aligned score
 
-    //declare array of recommendations from Recommendation class
+    //constant for steps to goal functionality
+    //a cutoff value of -1 turns off this feature
+    private static int STEPS_FROM_GOAL_CUTOFF = 200;
+
+    //declare array of Recommendation objects
+    //keeps track of recommended char, steps to goal, and quality score for top
+    //scoring found sequences
     private Recommendation[] topNextActions;
 
     //array to hold the number of recommendations for each char action based on the info from
     //topNextActions
     private int[] frequencyNextActions;
 
-    //SUS percentage variable
+    //percentage variables for method usage
+    //(how often we use each method)
     double percentSUS = 0;
     double percentRandom = 0;
     double percentQuality = 0;
 
     //number of runs we want to do
+    //called in main if multiple csv files are desired
     protected static int NUM_RUNS = 5;
 
-    //name of file we are saving run info in, changes based on run number
+    //name of file we are saving run info in
+    //declared in main
     protected static String fileName;
 
 
@@ -65,6 +73,7 @@ public class NewAgent extends StateMachineAgent
     public NewAgent()
     {
         super();
+        //use NUM_TOP_ACTIONS+1 so we can sort and keep top 8
         topNextActions = new Recommendation[NUM_TOP_ACTIONS+1];
         frequencyNextActions = new int[env.ALPHABET_SIZE];
     }
@@ -76,12 +85,14 @@ public class NewAgent extends StateMachineAgent
      * has an original sequence and compares it to past sequences found in its episodic memory
      * generates a score based on matched subsequences and direct matches and stores top scores in an array
      * determines an average score from array and compares against SUS score
-     * if array has higher score, do more frequently recommended char from array
+     * if average array score is higher, do most frequently recommended char from array
      * if SUS has higher score, try SUS path
+     * if random has higher score, try random, or semi random char
      * resets top scores array for each new original sequence
      */
     public void exploreEnvironment() {
 
+        //initializing everything
         Episode[] originalSequence = new Episode[COMPARE_SIZE]; //initialize originalSequence
         Episode[] foundSequence = new Episode[COMPARE_SIZE]; //initialize foundSequence
         int lastGoalIndex; //index of last goal
@@ -92,6 +103,7 @@ public class NewAgent extends StateMachineAgent
         int stepsFromGoal = 0; //how far found sequence is from last goal index
 
         //DEBUGGING
+        //for testing run times
         long sumRunTimesCheckCond = 0;
         int numCallsCheckCond = 0;
         long sumRunTimesFoundSeq = 0;
@@ -121,7 +133,7 @@ public class NewAgent extends StateMachineAgent
             long startFoundCond = 0;
             //iterate through episodic memory and get found sequences of length COMPARE_SIZE
             //get a quality score for each and fill the top scores in the recommendation array
-            //compare scores to SUS to determine what move to do next
+            //compare scores to SUS and random to determine what move to do next
             for(int w = lastGoalIndex; w >= COMPARE_SIZE; w--){
 
                 if(metFoundCond)
@@ -150,29 +162,23 @@ public class NewAgent extends StateMachineAgent
                     foundSequence = getFoundSequence(w); //fill found sequence
                     stepsFromGoal = lastGoalIndex - w;
 
-//                    //a found sequence has been found...
-//                    //get the end time
-//                    long endFoundCond = System.currentTimeMillis();
-//
-//                    //add the difference between endFoundCond and startFoundCond to sumRunTimesCheckFoundCond
-//                    sumRunTimesFoundSeq = sumRunTimesFoundSeq + (endFoundCond-startFoundCond);
-//
-//                    //increment counter (keeps track of how many found sequences were found)
-//                    numFound++;
-//
-//                    //set metFoundCond to true
-//                    metFoundCond = true;
+                    if(stepsFromGoal > STEPS_FROM_GOAL_CUTOFF && STEPS_FROM_GOAL_CUTOFF != -1)
+                    {
+                        continue;
+                    }
 
                 }
-                else {
+                else
+                {
                     w = meetsFoundConditions; //doesnt meet conditions, start at next goal
+                    //shouldn't lastGoalIndex be set to w?
+                    lastGoalIndex = w;
 
                     //IMPORTANT
                     metFoundCond = false;
-
                     continue;
                 }
-
+                
                 //call our quality methods to get scores
                 double countingScore = getCountingScore(originalSequence, foundSequence);
                 double alignedMatches = getAlignedMatchesScore(originalSequence, foundSequence);
@@ -216,7 +222,7 @@ public class NewAgent extends StateMachineAgent
             //get the SUS score to be compared
             determineSusScore();
 
-            //loop through frequencyNextActions and determine the best next move
+            //loop through frequencyNextActions and determine most frequently recommended move
             int indexBestMove = 0;
             int highestFreq = 0;
 
@@ -229,6 +235,8 @@ public class NewAgent extends StateMachineAgent
                 }
             }
 
+            //increment the decision counter as the agent is about to decide what move to make next
+            //based on all the information gathered
             decisionCounter++;
 
             //if the RANDOM_SCORE is higher, do a random move
@@ -240,6 +248,8 @@ public class NewAgent extends StateMachineAgent
             }
             else if (susScore > avgTopScores){
                 String pathToAttempt = getSus();
+
+                //in case there are no more SUS left...
                 if (pathToAttempt == null)
                 {
                     pathToAttempt = "" + generateSemiRandomAction();
@@ -259,7 +269,7 @@ public class NewAgent extends StateMachineAgent
         percentRandom = (randomCounter/decisionCounter)*100.0;
         percentQuality = (qualityCounter/decisionCounter)*100.0;
 
-
+        //DEBUGGING--Runtimes
         avgRunTimeCheckCond = sumRunTimesCheckCond/(double)numCallsCheckCond;
         avgRunTimeFoundSeq = sumRunTimesFoundSeq/(double)numFound;
 
@@ -405,11 +415,17 @@ public class NewAgent extends StateMachineAgent
      * checkConditions
      * @param lastGoalIndex, the most recent goal
      * @return index of goal that has at least COMPARE_SIZE episodes before it
+     * we need to make sure certain conditions are met before we start getting original sequences
+     * we make sure that we have at least one goal in our episodic memory
+     * and we need to make sure that we don't try to go out of bound in our memory array
+     * so we make sure we have at least 8 most recent moves with no goal to get our original sequence from
      */
     private int checkConditions(int lastGoalIndex){
 
         //while we don't have a goal in episodic memory, keep making random moves
         while (lastGoalIndex == -1) {
+
+            //if we haven't reached a goal yet, do a random action
             String pathWeAttempt = "" + generateSemiRandomAction();
             Path finalPath = stringToPath(pathWeAttempt);
             tryPath(finalPath);
@@ -418,7 +434,9 @@ public class NewAgent extends StateMachineAgent
         }
 
 
-        //If we've just reached the goal in the last 8 characters, then generate random steps until long enough
+        //If we've just reached the goal in the last COMPARE_SIZE characters, then generate random steps until long enough
+        //or if our episodic memory is not large enough, keep generating random actions
+        //or if we have reached a goal in the first COMPARE_SIZE moves, we can't get a found sequence so do random move
         while (lastGoalIndex >= episodicMemory.size() - COMPARE_SIZE || episodicMemory.size() < COMPARE_SIZE || lastGoalIndex < COMPARE_SIZE){
             String pathWeAttempt = "" + generateSemiRandomAction();
             Path finalPath = stringToPath(pathWeAttempt);
@@ -492,20 +510,23 @@ public class NewAgent extends StateMachineAgent
 
             FileWriter csv = new FileWriter(fileName);
             for(int i = 0; i < NUM_MACHINES; ++i) {
+                //keep track of what machine we are on in console
                 System.out.println("machine number: " + (i+1));
                 NewAgent gilligan = new NewAgent();
 
+                //DEBUGGING--Runtimes
                 long startTime = System.currentTimeMillis();
                 gilligan.exploreEnvironment();
                 long endTime = System.currentTimeMillis();
-
                 totalMachineTime = endTime - startTime;
+
+                //record what gilligan has done in a csv file
                 gilligan.recordLearningCurve(csv);
             }
             csv.close();
         }
         catch (IOException e) {
-            System.out.println("tryAllCombos: Could not create file, what a noob...");
+            System.out.println("tryGenLearningCurves: Could not create file, what a noob :( ...");
             System.exit(-1);
         }
     }//tryGenLearningCurves
@@ -515,7 +536,7 @@ public class NewAgent extends StateMachineAgent
      *
      * examine's the agents memory and prints out how many steps the agent took
      * to reach the goal each time
-     * record percentage of time we use SUS
+     * record percentage of time we use SUS, random, and Quality
      *
      * @param csv         an open file to write to
      */
@@ -524,13 +545,12 @@ public class NewAgent extends StateMachineAgent
             csv.append(episodicMemory.size() + ",");
             csv.flush();
             int prevGoalPoint = 0; //which episode I last reached the goal at
+
+            //record each methods constant and how often we used it
             csv.append(" SUS constant: " + SUS_CONSTANT + " ,");
             csv.append(" SUS percentage: " + percentSUS + ",");
             csv.append(" Random constant: " + RANDOM_SCORE + ",");
             csv.append(" Random percentage: " + percentRandom + " ,");
-            //csv.append(" Machine RunTime: " + totalMachineTime/(double)1000 + ",");
-            //csv.append(" Average checkConditions RunTime: " + avgRunTimeCheckCond/(double)1000 + ",");
-            //csv.append("" + avgRunTimeFoundSeq/(double)1000 + ",");
             csv.append(" Quality constant: " + ALIGNED_CONSTANT + ",");
             csv.append(" Quality percentage: " + percentQuality + ",");
 
@@ -547,7 +567,7 @@ public class NewAgent extends StateMachineAgent
             csv.append("\n");
             csv.flush();
         } catch (IOException e) {
-            System.out.println("recordLearningCurve: Could not write to given csv file.");
+            System.out.println("recordLearningCurve: Could not write to given csv file :( .");
             System.exit(-1);
         }
     }
@@ -590,7 +610,7 @@ public class NewAgent extends StateMachineAgent
             csv.flush();
         }
         catch (IOException e) {
-            System.out.println("Could not create file, what a noob...");
+            System.out.println("tryOneCombo: Could not create file, what a noob...");
             System.exit(-1);
         }
 
@@ -635,21 +655,18 @@ public class NewAgent extends StateMachineAgent
     /**
      * main
      *
-     * helper methods (above) have been defined to do various things here.
-     * Modify this method to call the one(s) you want.
+     * Modify this method to call the methods you want
+     * whether it be tryGenLearningCurves or tryAllCombos, etc...
      */
     public static void main(String [ ] args) {
 
         for(int i=0; i < NUM_RUNS; i++){
             //name our csv file after what run number we are currently on
-            fileName = ("AIReportQuality1_SUS0_RANDOM1_"+i+".csv");
-            SUS_CONSTANT = 0;
-            RANDOM_SCORE = 8;
-            COUNTING_CONSTANT = 4;
-            ALIGNED_CONSTANT = 4;
+            fileName = ("AIReport"+i+".csv");
+
             tryGenLearningCurves();
         }
-        //tryAllCombos();
+        //when gilligan is done, say so to console
         System.out.println("Done.");
     }
 }
